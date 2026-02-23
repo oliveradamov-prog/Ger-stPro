@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 14, "column": 0}, "map": {"version":3,"sources":["file:///home/runner/workspace/app/page.tsx"],"sourcesContent":["export default function HomePage() {\n  return (\n    <div className=\"text-center py-20\">\n      <h1 className=\"text-5xl font-extrabold mb-6 tracking-tight\">\n        Professional Construction <span className=\"text-orange-600\">Daily Logs</span>\n      </h1>\n      <p className=\"text-xl text-gray-600 mb-10 max-w-2xl mx-auto\">\n        Efficiently document work, crew, and weather. Generate PDF reports in seconds.\n      </p>\n      <div className=\"flex justify-center gap-4\">\n        <a href=\"/projects\" className=\"bg-orange-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-orange-700\">\n          Get Started\n        </a>\n        <a href=\"/login\" className=\"bg-white text-gray-900 px-8 py-3 rounded-lg font-bold border border-gray-200 hover:bg-gray-50\">\n          Sign In\n        </a>\n      </div>\n    </div>\n  );\n}"],"names":[],"mappings":";;;;;;AAAe,SAAS;IACtB,qBACE,8OAAC;QAAI,WAAU;;0BACb,8OAAC;gBAAG,WAAU;;oBAA8C;kCAChC,8OAAC;wBAAK,WAAU;kCAAkB;;;;;;;;;;;;0BAE9D,8OAAC;gBAAE,WAAU;0BAAgD;;;;;;0BAG7D,8OAAC;gBAAI,WAAU;;kCACb,8OAAC;wBAAE,MAAK;wBAAY,WAAU;kCAA8E;;;;;;kCAG5G,8OAAC;wBAAE,MAAK;wBAAS,WAAU;kCAAgG;;;;;;;;;;;;;;;;;;AAMnI"}}]
+}

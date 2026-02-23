@@ -26,3 +26,10 @@ outputType = "webview"
 
 [nix]
 channel = "stable-25_05"
+
+[agent]
+expertMode = true
+
+[[ports]]
+localPort = 5000
+externalPort = 80
