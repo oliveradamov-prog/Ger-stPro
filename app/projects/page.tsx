@@ -1,25 +1,82 @@
-import Link from "next/link";
+'use client'
+
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { supabase } from '@/lib/supabaseClient'
+
+type Project = {
+  id: string
+  name: string
+  location: string
+  client: string
+}
 
 export default function ProjectsPage() {
+
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadProjects()
+  }, [])
+
+  async function loadProjects() {
+
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      setProjects(data)
+    }
+
+    setLoading(false)
+  }
+
+  if (loading) return <p>Loading...</p>
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Projects</h1>
-        <Link href="/projects/new" className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700">
+    <div style={{ padding: 20 }}>
+
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        marginBottom: 20
+      }}>
+        <h1>Projects</h1>
+
+        <Link href="/projects/new">
           New Project
         </Link>
       </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map((id) => (
-          <div key={id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-xl font-bold mb-2">Sample Project {id}</h2>
-            <p className="text-gray-600 mb-4">Location: Berlin, Germany</p>
-            <Link href={`/projects/${id}`} className="text-orange-600 font-medium hover:underline">
-              View Daily Logs →
-            </Link>
-          </div>
-        ))}
-      </div>
+
+
+      {projects.map(project => (
+
+        <div
+          key={project.id}
+          style={{
+            border: '1px solid #ccc',
+            padding: 12,
+            marginBottom: 10
+          }}
+        >
+
+          <h3>{project.name}</h3>
+
+          <p>Location: {project.location}</p>
+
+          <p>Client: {project.client}</p>
+
+          <Link href={`/projects/${project.id}`}>
+            View Daily Logs →
+          </Link>
+
+        </div>
+
+      ))}
+
     </div>
-  );
+  )
 }
