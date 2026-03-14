@@ -1,220 +1,281 @@
 'use client'
 
-import { useState } from 'react'
+import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
-/** ✅ mindig text[]-t ad vissza (Supabase text[] mezőkhöz) */
-const toTextArray = (v: any): string[] => {
+const COL_WORKERS_COUNT = 'workers_count'
+const COL_SITE_MANAGERS_COUNT = 'site_managers_count'
+const COL_WORKERS_NAMES = 'workers_names'
+const COL_SITE_MANAGERS_NAMES = 'site_managers_names'
+
+function toTextArray(v: any): string[] {
   if (Array.isArray(v)) return v.map(String).map((s) => s.trim()).filter(Boolean)
-  if (typeof v === 'string') {
-    return v
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
+
+  const s = String(v ?? '').trim()
+  if (!s) return []
+
+  const parts = s
+    .split(/[,;\n]+/g)
+    .map((x) => x.trim())
+    .filter(Boolean)
+
+  const seen = new Set<string>()
+  const out: string[] = []
+
+  for (const p of parts) {
+    const key = p.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(p)
   }
-  return []
+
+  return out
 }
 
 export default function NewLogForm() {
   const router = useRouter()
-  const params = useParams() as { projectId?: string | string[] }
+  const params = useParams()
 
-  const projectId =
-    typeof params?.projectId === 'string'
-      ? params.projectId
-      : Array.isArray(params?.projectId)
-        ? params.projectId[0]
-        : ''
+  const projectId = useMemo(() => {
+    const raw = (params as any)?.projectId
+    return typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : ''
+  }, [params])
 
-  const [title, setTitle] = useState('')
-  const [logDate, setLogDate] = useState('')
-  const [workDescription, setWorkDescription] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
 
-  const [workerInput, setWorkerInput] = useState('')
-  const [siteManagerInput, setSiteManagerInput] = useState('')
-  const [workersNames, setWorkersNames] = useState<string[]>([])
-  const [siteManagersNames, setSiteManagersNames] = useState<string[]>([])
+  const [form, setForm] = useState({
+    log_date: new Date().toISOString().slice(0, 10),
+    description: '',
+    work_description: '',
+    workers_names: '',
+    site_managers_names: '',
+  })
 
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  function addWorker() {
-    const n = workerInput.trim()
-    if (!n) return
-    setWorkersNames((p) => (p.includes(n) ? p : [...p, n]))
-    setWorkerInput('')
-  }
-
-  function addSiteManager() {
-    const n = siteManagerInput.trim()
-    if (!n) return
-    setSiteManagersNames((p) => (p.includes(n) ? p : [...p, n]))
-    setSiteManagerInput('')
-  }
-
-  function removeWorker(n: string) {
-    setWorkersNames((p) => p.filter((x) => x !== n))
-  }
-
-  function removeSiteManager(n: string) {
-    setSiteManagersNames((p) => p.filter((x) => x !== n))
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+  async function create() {
+    setMsg('')
+    setSaving(true)
 
     try {
-      if (!projectId) throw new Error('Missing projectId (route param is empty)')
-      if (!logDate) throw new Error('Please select a date')
-      if (!title.trim()) throw new Error('Please enter a title')
+      if (!projectId) throw new Error('Projekt-ID in der Route fehlt.')
+      if (!form.log_date) throw new Error('Bitte ein Datum auswählen.')
+      if (!form.description.trim()) throw new Error('Bitte einen Titel eingeben.')
 
-      const { data, error: authError } = await supabase.auth.getUser()
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
+
       if (authError) throw new Error(authError.message)
-      const user = data?.user
-      if (!user) throw new Error('Not logged in')
+      if (!user) throw new Error('Nicht eingeloggt.')
 
-      // ✅ biztosítjuk, hogy mindig string[] menjen a Supabase text[] mezőkbe
-      const w = toTextArray(workersNames)
-      const sm = toTextArray(siteManagersNames)
+      const workersArr = toTextArray(form.workers_names)
+      const managersArr = toTextArray(form.site_managers_names)
 
-      const payload = {
+      const payload: any = {
         project_id: projectId,
         user_id: user.id,
-        log_date: logDate,
-        description: title.trim(),
-        work_description: workDescription.trim() || null,
-
-        workers_count: w.length,
-        site_managers_count: sm.length,
-
-        workers_names: w, // text[]
-        site_managers_names: sm, // text[]
+        log_date: form.log_date,
+        description: form.description.trim(),
+        work_description: form.work_description.trim() || null,
+        [COL_WORKERS_NAMES]: workersArr,
+        [COL_SITE_MANAGERS_NAMES]: managersArr,
+        [COL_WORKERS_COUNT]: workersArr.length,
+        [COL_SITE_MANAGERS_COUNT]: managersArr.length,
       }
 
-      // ✅ biztos insert + visszakapjuk az id-t
-      const { data: inserted, error: insertError } = await supabase
+      const { data, error } = await supabase
         .from('daily_logs')
         .insert(payload)
         .select('id')
         .single()
 
-      if (insertError) throw insertError
-      if (!inserted?.id) throw new Error('Insert failed: no id returned')
+      if (error) throw error
+      if (!data?.id) throw new Error('Eintrag erstellt, aber keine ID zurückgegeben.')
 
-      router.push(`/projects/${projectId}/logs/${inserted.id}`)
+      router.push(`/projects/${projectId}/logs/${data.id}`)
       router.refresh()
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed')
+    } catch (e: any) {
+      setMsg(e?.message ?? 'Erstellen fehlgeschlagen')
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
+  if (!projectId) {
+    return (
+      <div className="page">
+        <h1 className="h1">Neuer Tagesbericht</h1>
+        <p className="muted" style={{ marginTop: 10 }}>
+          Projekt-ID fehlt.
+        </p>
+        <style jsx>{baseStyles}</style>
+      </div>
+    )
+  }
+
+  const workersCount = toTextArray(form.workers_names).length
+  const managersCount = toTextArray(form.site_managers_names).length
+
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: 820 }}>
-      <h1 style={{ fontSize: 52, fontWeight: 900, margin: '0 0 16px 0' }}>New Daily Log</h1>
+    <div className="page">
+      <div className="topRow">
+        <Link className="backLink" href={`/projects/${projectId}`}>
+          ← Zurück
+        </Link>
 
-      <div style={{ marginBottom: 12, color: '#666' }}>
-        <b>projectId from route:</b> {projectId || '(empty)'}
-      </div>
-
-      <div>
-        <label style={{ display: 'block', fontWeight: 800, marginBottom: 6 }}>Title</label>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          style={{ width: '100%', padding: 12, fontSize: 16, border: '1px solid #999' }}
-        />
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <label style={{ display: 'block', fontWeight: 800, marginBottom: 6 }}>Date</label>
-        <input
-          type="date"
-          value={logDate}
-          onChange={(e) => setLogDate(e.target.value)}
-          style={{ width: '100%', padding: 12, fontSize: 16, border: '1px solid #999' }}
-        />
-      </div>
-
-      <div style={{ marginTop: 18, border: '1px solid #ccc', padding: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 28, fontWeight: 900 }}>Crew names</h2>
-
-        <div style={{ marginTop: 12, border: '1px solid #ddd', padding: 12 }}>
-          <div style={{ fontWeight: 900, marginBottom: 8 }}>Workers ({workersNames.length})</div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <input
-              value={workerInput}
-              onChange={(e) => setWorkerInput(e.target.value)}
-              placeholder="Add a name..."
-              style={{ flex: 1, padding: 12, fontSize: 16, border: '1px solid #999' }}
-            />
-            <button type="button" onClick={addWorker} style={{ border: '1px solid #000', padding: '10px 14px' }}>
-              Add
-            </button>
-          </div>
-
-          {workersNames.map((n) => (
-            <div key={n} style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center' }}>
-              <span>{n}</span>
-              <button
-                type="button"
-                onClick={() => removeWorker(n)}
-                style={{ border: '1px solid #000', padding: '2px 8px' }}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ marginTop: 12, border: '1px solid #ddd', padding: 12 }}>
-          <div style={{ fontWeight: 900, marginBottom: 8 }}>Site Managers ({siteManagersNames.length})</div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <input
-              value={siteManagerInput}
-              onChange={(e) => setSiteManagerInput(e.target.value)}
-              placeholder="Add a name..."
-              style={{ flex: 1, padding: 12, fontSize: 16, border: '1px solid #999' }}
-            />
-            <button type="button" onClick={addSiteManager} style={{ border: '1px solid #000', padding: '10px 14px' }}>
-              Add
-            </button>
-          </div>
-
-          {siteManagersNames.map((n) => (
-            <div key={n} style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center' }}>
-              <span>{n}</span>
-              <button
-                type="button"
-                onClick={() => removeSiteManager(n)}
-                style={{ border: '1px solid #000', padding: '2px 8px' }}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
+        <div className="btnRow">
+          <button className="btn" onClick={() => router.push(`/projects/${projectId}`)} type="button">
+            Abbrechen
+          </button>
+          <button className="btnPrimary" onClick={create} type="button" disabled={saving}>
+            {saving ? 'Speichert…' : 'Erstellen'}
+          </button>
         </div>
       </div>
 
-      <div style={{ marginTop: 18 }}>
-        <label style={{ display: 'block', fontWeight: 800, marginBottom: 6 }}>Work description</label>
-        <textarea
-          value={workDescription}
-          onChange={(e) => setWorkDescription(e.target.value)}
-          rows={6}
-          style={{ width: '100%', padding: 12, fontSize: 16, border: '1px solid #999' }}
-        />
+      <h1 className="h1" style={{ marginTop: 10 }}>
+        Neuer Tagesbericht
+      </h1>
+
+      {msg ? <div className="error">{msg}</div> : null}
+
+      <div className="grid" style={{ marginTop: 14 }}>
+        <div className="card">
+          <div className="label">Datum</div>
+          <input
+            className="input"
+            type="date"
+            value={form.log_date}
+            onChange={(e) => setForm((p) => ({ ...p, log_date: e.target.value }))}
+          />
+        </div>
+
+        <div className="card">
+          <div className="label">Titel</div>
+          <input
+            className="input"
+            value={form.description}
+            onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+            placeholder="Kurzer Titel…"
+          />
+        </div>
+
+        <div className="card">
+          <div className="label">Teamnamen</div>
+          <div className="muted" style={{ marginBottom: 10 }}>
+            Mehrere Namen mit Komma oder neuer Zeile trennen. Beispiel: <b>Hans, Peter</b>
+          </div>
+
+          <div className="two">
+            <div>
+              <div className="miniLabel">Arbeiternamen</div>
+              <textarea
+                className="textarea"
+                value={form.workers_names}
+                onChange={(e) => setForm((p) => ({ ...p, workers_names: e.target.value }))}
+                placeholder="Hans, Peter…"
+              />
+              <div className="hint">
+                Anzahl: <b>{workersCount}</b>
+              </div>
+            </div>
+
+            <div>
+              <div className="miniLabel">Bauleiternamen</div>
+              <textarea
+                className="textarea"
+                value={form.site_managers_names}
+                onChange={(e) => setForm((p) => ({ ...p, site_managers_names: e.target.value }))}
+                placeholder="Michael, Stefan…"
+              />
+              <div className="hint">
+                Anzahl: <b>{managersCount}</b>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="label">Arbeitsbeschreibung</div>
+          <textarea
+            className="textarea workArea"
+            value={form.work_description}
+            onChange={(e) => setForm((p) => ({ ...p, work_description: e.target.value }))}
+            placeholder="Was wurde heute gemacht…"
+          />
+        </div>
+
+        <div className="card">
+          <div className="label">Fotos</div>
+          <div className="muted" style={{ fontWeight: 900 }}>
+            Fotos können nach dem Erstellen des Tagesberichts im Bereich „Bearbeiten“ hochgeladen werden.
+          </div>
+        </div>
       </div>
 
-      <button type="submit" disabled={loading} style={{ marginTop: 14, border: '1px solid #000', padding: '10px 14px' }}>
-        {loading ? 'Saving...' : 'Create Log'}
-      </button>
+      <style jsx>{baseStyles}</style>
 
-      {error && <p style={{ color: 'crimson', marginTop: 10 }}>{error}</p>}
-    </form>
+      <style jsx>{`
+        .topRow{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+        .backLink{color:var(--muted);text-decoration:none;font-weight:950;}
+        .backLink:hover{color:var(--text);}
+        .btnRow{display:flex;gap:10px;flex-wrap:wrap;max-width:100%;}
+        .btn,.btnPrimary{
+          min-height:44px;padding:10px 14px;border-radius:14px;cursor:pointer;font-weight:950;max-width:100%;
+          transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+          white-space:nowrap;
+        }
+        .btn{border:1px solid var(--border);background:var(--chip);color:var(--text);}
+        .btn:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(0,0,0,.18);}
+        .btn:active{transform:translateY(0px) scale(.995);}
+
+        .btnPrimary{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.10);color:var(--text);}
+        .btnPrimary:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(0,0,0,.22);}
+        .btnPrimary:active{transform:translateY(0px) scale(.995);}
+        .btnPrimary:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none;}
+
+        .grid{display:grid;gap:14px;}
+        .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+        @media(max-width:720px){.two{grid-template-columns:1fr;}.btn,.btnPrimary{flex:1;}}
+
+        .card{border:1px solid var(--border);background:var(--chip);border-radius:18px;padding:16px;overflow:hidden;}
+        .label{color:var(--muted);font-weight:950;font-size:14px;margin-bottom:8px;}
+        .miniLabel{color:var(--muted);font-weight:950;font-size:13px;margin-bottom:6px;}
+        .hint{margin-top:8px;color:var(--muted);font-weight:900;}
+
+        .input,.textarea{
+          width:100%;
+          border:1px solid var(--border);
+          background:rgba(255,255,255,.04);
+          color:var(--text);
+          border-radius:14px;
+          padding:12px;
+          font-weight:900;
+          box-sizing:border-box;
+        }
+
+        .textarea{
+          min-height:110px;
+          resize:vertical;
+          white-space:pre-wrap;
+        }
+
+        .workArea{
+          min-height:140px;
+          max-height:260px;
+          overflow:auto;
+        }
+      `}</style>
+    </div>
   )
 }
+
+const baseStyles = `
+  .page{max-width:980px;margin:0 auto;padding:1rem;color:var(--text);overflow-x:hidden;}
+  .h1{font-size:54px;font-weight:950;margin:0;color:var(--text);letter-spacing:-0.4px;word-break:break-word;}
+  .muted{color:var(--muted);font-weight:800;}
+  .error{margin-top:12px;color:#ff6b6b;font-weight:950;}
+`

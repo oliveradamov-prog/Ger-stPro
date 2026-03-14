@@ -16,24 +16,24 @@ args = "dev-server"
 name = "dev-server"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
 
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx next dev --webpack -p 5000"
+waitForPort = 5000
+
 [nix]
 channel = "stable-25_05"
-packages = ["photofield"]
+packages = ["photofield", "gh"]
 
 [agent]
 expertMode = true
 
 [[ports]]
 localPort = 3000
-externalPort = 3000
+externalPort = 80
 
 [[ports]]
 localPort = 3001
@@ -41,12 +41,7 @@ externalPort = 3001
 
 [[ports]]
 localPort = 3002
-externalPort = 3002
-
-[[ports]]
-localPort = 3003
-externalPort = 3003
 
 [[ports]]
 localPort = 5000
-externalPort = 80
+externalPort = 5000

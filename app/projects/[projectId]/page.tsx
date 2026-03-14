@@ -25,12 +25,16 @@ type DailyLog = {
 function formatDate(dateStr: string) {
   if (!dateStr) return ''
   const d = new Date(dateStr + 'T00:00:00')
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' })
+  return d.toLocaleDateString('de-DE', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  })
 }
 
-function shortText(s: string | null, n = 70) {
+function shortText(s: string | null, n = 90) {
   const t = (s ?? '').trim()
-  if (!t) return '(empty)'
+  if (!t) return '(leer)'
   if (t.length <= n) return t
   return t.slice(0, n).trimEnd() + '…'
 }
@@ -83,7 +87,7 @@ export default function ProjectDetailsPage() {
           setLogs((logsData as DailyLog[]) ?? [])
         }
       } catch (e: any) {
-        if (!cancelled) setMsg(e?.message ?? 'Something went wrong')
+        if (!cancelled) setMsg(e?.message ?? 'Etwas ist schiefgelaufen.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -98,9 +102,9 @@ export default function ProjectDetailsPage() {
   if (!projectId) {
     return (
       <div className="page">
-        <h1 className="h1">Project</h1>
+        <h1 className="h1">Projekt</h1>
         <p className="muted" style={{ marginTop: 8 }}>
-          Missing projectId in the URL.
+          Projekt-ID fehlt in der URL.
         </p>
         <style jsx>{styles}</style>
       </div>
@@ -111,50 +115,59 @@ export default function ProjectDetailsPage() {
     <div className="page">
       <div className="topRow">
         <div>
-          <h1 className="h1">{project?.name ?? 'Project'}</h1>
+          <div className="kicker">GerüstPro</div>
+          <h1 className="h1">{project?.name ?? 'Projekt'}</h1>
 
-          {project?.location ? (
-            <p className="muted" style={{ marginTop: 10 }}>
-              Location: {project.location}
-            </p>
-          ) : null}
-
-          {project?.client ? (
-            <p className="muted" style={{ marginTop: 6 }}>
-              Client: {project.client}
-            </p>
-          ) : null}
+          <div className="metaBlock">
+            <div className="metaLine">
+              <span className="metaLabel">Standort / Baustelle:</span>{' '}
+              <span>{project?.location || '—'}</span>
+            </div>
+            <div className="metaLine">
+              <span className="metaLabel">Client / Auftraggeber:</span>{' '}
+              <span>{project?.client || '—'}</span>
+            </div>
+          </div>
         </div>
 
-        <Link className="newBtn" href={`/projects/${projectId}/new-log`}>
-          New Daily Log
-        </Link>
+        <div className="btnRow">
+          <Link className="btn" href="/projects">
+            Alle Projekte
+          </Link>
+          <Link className="btnPrimary" href={`/projects/${projectId}/new-log`}>
+            Neuer Tagesbericht
+          </Link>
+        </div>
       </div>
 
       {msg ? <div className="error">{msg}</div> : null}
 
       {loading ? (
         <p className="muted" style={{ marginTop: 16 }}>
-          Loading…
+          Wird geladen…
         </p>
       ) : (
         <div style={{ marginTop: 18 }}>
-          <h2 className="h2">Daily Logs</h2>
+          <h2 className="h2">Tagesberichte</h2>
 
           {logs.length === 0 ? (
             <div className="empty">
-              <p style={{ margin: 0 }}>No daily logs yet.</p>
+              <p style={{ margin: 0 }}>Noch keine Tagesberichte vorhanden.</p>
               <p style={{ marginTop: 8 }}>
-                Click <b>New Daily Log</b> to create one.
+                Klicke auf <b>Neuer Tagesbericht</b>, um den ersten Eintrag zu erstellen.
               </p>
             </div>
           ) : (
             <div className="grid">
               {logs.map((log) => (
-                <Link key={log.id} href={`/projects/${projectId}/logs/${log.id}`} className="logCard">
+                <Link
+                  key={log.id}
+                  href={`/projects/${projectId}/logs/${log.id}`}
+                  className="logCard"
+                >
                   <div className="date">{formatDate(log.log_date)}</div>
                   <div className="title">{shortText(log.description, 90)}</div>
-                  <div className="desc">{shortText(log.work_description, 110)}</div>
+                  <div className="desc">{shortText(log.work_description, 130)}</div>
                 </Link>
               ))}
             </div>
@@ -173,6 +186,7 @@ const styles = `
     margin: 0 auto;
     padding: 1rem;
     color: var(--text);
+    overflow-x: hidden;
   }
 
   .topRow{
@@ -183,41 +197,94 @@ const styles = `
     flex-wrap: wrap;
   }
 
+  .btnRow{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    max-width:100%;
+  }
+
+  .kicker{
+    color: var(--muted);
+    font-weight: 900;
+    letter-spacing: .02em;
+  }
+
   .h1{
-    font-size: 54px;
+    font-size: 44px;
     font-weight: 950;
-    margin: 0;
+    margin: 6px 0 0;
     color: var(--text);
-    letter-spacing: -0.4px;
+    letter-spacing: -0.03em;
+    word-break: break-word;
   }
 
   .h2{
     margin: 0 0 12px 0;
-    font-size: 34px;
+    font-size: 30px;
     font-weight: 950;
     color: var(--text);
   }
 
   .muted{
     color: var(--muted);
-    font-weight: 700;
+    font-weight: 800;
   }
 
   .error{
     margin-top: 12px;
     color: #ff6b6b;
-    font-weight: 800;
+    font-weight: 950;
   }
 
-  .newBtn{
-    align-self: flex-start;
-    text-decoration: none;
+  .metaBlock{
+    margin-top: 14px;
+    display:grid;
+    gap:8px;
+  }
+
+  .metaLine{
     color: var(--text);
-    border: 1px solid var(--border);
-    background: var(--chip);
-    padding: 12px 16px;
-    border-radius: 18px;
-    font-weight: 950;
+    font-weight: 800;
+    line-height: 1.4;
+  }
+
+  .metaLabel{
+    color: var(--muted);
+    font-weight: 900;
+  }
+
+  .btn,
+  .btnPrimary{
+    min-height:44px;
+    padding:10px 14px;
+    border-radius:14px;
+    cursor:pointer;
+    font-weight:950;
+    transition:transform .15s ease, box-shadow .15s ease;
+    white-space:nowrap;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    text-decoration:none;
+  }
+
+  .btn{
+    border:1px solid var(--border);
+    background:var(--chip);
+    color:var(--text);
+  }
+
+  .btnPrimary{
+    border:1px solid rgba(255,255,255,.22);
+    background:rgba(255,255,255,.10);
+    color:var(--text);
+  }
+
+  .btn:hover,
+  .btnPrimary:hover{
+    transform:translateY(-1px);
+    box-shadow:0 12px 34px rgba(0,0,0,.22);
   }
 
   .empty{
@@ -241,6 +308,12 @@ const styles = `
     border-radius: 18px;
     padding: 16px;
     color: var(--text);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+
+  .logCard:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 12px 34px rgba(0,0,0,.22);
   }
 
   .date{
@@ -255,17 +328,25 @@ const styles = `
     font-weight: 950;
     color: var(--text);
     line-height: 1.15;
+    word-break: break-word;
   }
 
-  /* ✅ EZ A JAVÍTÁS: nem halvány többé sem dark, sem light módban */
   .desc{
     margin-top: 8px;
     color: var(--muted);
-    font-weight: 700;
-    line-height: 1.35;
+    font-weight: 800;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  @media(max-width:720px){
+    .btn,
+    .btnPrimary{
+      width:100%;
+    }
   }
 
   @media print{
-    .newBtn{ display:none !important; }
+    .btnRow{ display:none !important; }
   }
 `

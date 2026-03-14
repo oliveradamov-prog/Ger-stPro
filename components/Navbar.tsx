@@ -1,20 +1,89 @@
-import Link from "next/link";
-import { HardHat } from "lucide-react";
+'use client'
+
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { HardHat, Menu, X } from 'lucide-react'
+import { useState } from 'react'
 
 export default function Navbar() {
+  const pathname = usePathname()
+  const [open, setOpen] = useState(false)
+
+  if (pathname === '/login') return null
+
+  const links = [
+    { href: '/projects', label: 'Projects' },
+    { href: '/upgrade', label: 'Upgrade' },
+    { href: '/login', label: 'Login' },
+  ]
+
   return (
-    <nav className="bg-white border-b border-gray-200">
-      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-          <HardHat className="w-6 h-6 text-orange-600" />
-          <span>Daily Log Builder</span>
+    <nav
+      style={{
+        borderBottom: '1px solid var(--border)',
+        background: 'rgba(255,255,255,0.03)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 980,
+          margin: '0 auto',
+          padding: '14px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}
+      >
+        <Link
+          href="/"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontWeight: 900,
+            fontSize: 18,
+            color: 'var(--text)',
+            textDecoration: 'none',
+          }}
+        >
+          <HardHat style={{ width: 22, height: 22, color: '#f97316' }} />
+          Daily Log Builder
         </Link>
-        <div className="flex gap-6">
-          <Link href="/projects" className="text-gray-600 hover:text-gray-900">Projects</Link>
-          <Link href="/upgrade" className="text-gray-600 hover:text-gray-900">Upgrade</Link>
-          <Link href="/login" className="text-gray-600 hover:text-gray-900">Login</Link>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          {links.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'var(--chip)',
+                color: 'var(--text)',
+                fontWeight: 800,
+                fontSize: 14,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                minHeight: 40,
+              }}
+            >
+              {l.label}
+            </Link>
+          ))}
         </div>
       </div>
     </nav>
-  );
+  )
 }

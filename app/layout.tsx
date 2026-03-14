@@ -1,17 +1,21 @@
 import './globals.css'
 import type { Metadata } from 'next'
-import TopBar from '@/components/TopBar'
+import Navbar from '@/components/Navbar'
 
 export const metadata: Metadata = {
   title: 'Daily Log Builder',
-  description: 'Daily logs app',
+  description: 'Construction daily log documentation',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="en">
+    <html lang="de">
       <body>
-        <TopBar />
+        <Navbar />
         {children}
       </body>
     </html>
