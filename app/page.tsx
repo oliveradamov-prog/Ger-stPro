@@ -1,7 +1,25 @@
+'use client'
+
 import Link from 'next/link'
+import Image from 'next/image'
+import { useEffect, useState } from 'react'
+import SplashScreen from '../components/SplashScreen'
 
 export default function HomePage() {
-  return (
+
+const [loading, setLoading] = useState(true)
+
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setLoading(false)
+  }, 2500)
+
+  return () => clearTimeout(timer)
+}, [])
+
+if (loading) return <SplashScreen />
+
+return (
     <main
       style={{
         maxWidth: 980,
@@ -28,13 +46,23 @@ export default function HomePage() {
             margin: '0 auto 18px',
             display: 'grid',
             placeItems: 'center',
-            border: '1px solid var(--border)',
+            border: '1px solid rgba(255,255,255,.14)',
             background: 'rgba(255,255,255,.05)',
-            fontSize: 34,
-            fontWeight: 950,
+            overflow: 'hidden',
+            position: 'relative',
+            boxShadow: '0 10px 24px rgba(0,0,0,.16)',
           }}
         >
-          GP
+          <Image
+            src="/gerustpro-logo.png"
+            alt="GerüstPro Logo"
+            fill
+            style={{
+              objectFit: 'contain',
+              transform: 'scale(2.35) translateY(4px)',
+            }}
+            priority
+          />
         </div>
 
         <div

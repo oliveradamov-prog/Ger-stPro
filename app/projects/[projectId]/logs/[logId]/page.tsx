@@ -290,10 +290,41 @@ export default function LogDetailsPage() {
   async function exportPdf() {
     setMsg('')
 
-    try {
-      setPdfBusy(true)
+        try {
+          setPdfBusy(true)
 
-      const [{ jsPDF }] = await Promise.all([import('jspdf')])
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+
+          if (!user) {
+            throw new Error('Nicht eingeloggt.')
+          }
+
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('role, plan, trial_ends_at')
+            .eq('id', user.id)
+            .single()
+
+          if (profileError) {
+            throw new Error('Profil konnte nicht geprüft werden.')
+          }
+
+          const isAdmin = profile?.role === 'admin'
+          const isPro = profile?.plan === 'pro'
+
+          let trialActive = false
+          if (profile?.trial_ends_at) {
+            trialActive = new Date(profile.trial_ends_at).getTime() > Date.now()
+          }
+
+          if (!isAdmin && !isPro && !trialActive) {
+            throw new Error('Deine Testphase ist abgelaufen. Bitte gehe auf Upgrade.')
+          }
+
+          const [{ jsPDF }] = await Promise.all([import('jspdf')])
+
 
       const pdf = new jsPDF('p', 'pt', 'a4')
       const pageWidth = pdf.internal.pageSize.getWidth()
