@@ -1,0 +1,11 @@
+node_modules
+.next
+.env
+*.log
+*.tar.gz
+backup*
+app_backup*
+components_backup*
+lib_backup*
+devlog.txt
+package_backup.json
