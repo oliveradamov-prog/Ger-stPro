@@ -14,7 +14,6 @@ export default function AuthCallbackPage() {
       const error = url.searchParams.get('error')
       const errorCode = url.searchParams.get('error_code')
       const code = url.searchParams.get('code')
-      const type = url.searchParams.get('type')
 
       if (error) {
         router.replace(`/login?error=${encodeURIComponent(errorCode || error)}`)
@@ -33,12 +32,9 @@ export default function AuthCallbackPage() {
         return
       }
 
-      if (type === 'recovery') {
-        router.replace('/reset-password')
-        return
-      }
-
-      router.replace('/login')
+      // Mivel ezt a callback oldalt a reset-password flow használja,
+      // sikeres session exchange után mindig a reset-password oldalra megyünk.
+      router.replace('/reset-password')
     }
 
     handleAuth()
