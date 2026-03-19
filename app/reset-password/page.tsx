@@ -29,16 +29,17 @@ export default function ResetPasswordPage() {
 
         if (code) {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-
           if (exchangeError) {
             setMsg(`Link ungültig oder abgelaufen: ${exchangeError.message}`)
             setChecking(false)
             return
           }
+
+          // kitisztítjuk a code-ot az URL-ből
+          window.history.replaceState({}, '', '/reset-password')
         }
 
         const { data, error: sessionError } = await supabase.auth.getSession()
-
         if (sessionError || !data.session) {
           setMsg('Der Zurücksetzungslink ist ungültig oder abgelaufen.')
           setChecking(false)
@@ -61,9 +62,7 @@ export default function ResetPasswordPage() {
     setBusy(true)
     setMsg('')
 
-    const { error } = await supabase.auth.updateUser({
-      password,
-    })
+    const { error } = await supabase.auth.updateUser({ password })
 
     if (error) {
       setMsg(error.message)
@@ -82,9 +81,7 @@ export default function ResetPasswordPage() {
       <div className="card">
         <div className="brand">GerüstPro</div>
         <h1>Neues Passwort</h1>
-        <p className="subtitle">
-          Gib hier dein neues Passwort ein.
-        </p>
+        <p className="subtitle">Gib hier dein neues Passwort ein.</p>
 
         {checking ? (
           <div className="message">Bitte warten...</div>
