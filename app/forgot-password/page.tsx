@@ -12,10 +12,10 @@ export default function ForgotPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
-    setMsg('');
+    setMsg('')
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: 'https://ger-st-pro.vercel.app/reset-password',
     })
 
     if (error) {
