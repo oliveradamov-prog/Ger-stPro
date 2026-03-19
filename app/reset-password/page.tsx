@@ -11,19 +11,49 @@ export default function ResetPasswordPage() {
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const [checking, setChecking] = useState(true)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    async function checkSession() {
-      const { data, error } = await supabase.auth.getSession()
+    async function prepareRecovery() {
+      try {
+        const url = new URL(window.location.href)
+        const error = url.searchParams.get('error')
+        const errorCode = url.searchParams.get('error_code')
+        const code = url.searchParams.get('code')
 
-      if (error || !data.session) {
-        setMsg('A jelszó-visszaállító link érvénytelen vagy lejárt.')
+        if (error) {
+          setMsg(`Fehler: ${errorCode || error}`)
+          setChecking(false)
+          return
+        }
+
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+          if (exchangeError) {
+            setMsg(`Link ungültig oder abgelaufen: ${exchangeError.message}`)
+            setChecking(false)
+            return
+          }
+        }
+
+        const { data, error: sessionError } = await supabase.auth.getSession()
+
+        if (sessionError || !data.session) {
+          setMsg('Der Zurücksetzungslink ist ungültig oder abgelaufen.')
+          setChecking(false)
+          return
+        }
+
+        setReady(true)
+      } catch {
+        setMsg('Beim Laden der Passwort-Zurücksetzung ist ein Fehler aufgetreten.')
+      } finally {
+        setChecking(false)
       }
-
-      setChecking(false)
     }
 
-    checkSession()
+    prepareRecovery()
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -58,7 +88,7 @@ export default function ResetPasswordPage() {
 
         {checking ? (
           <div className="message">Bitte warten...</div>
-        ) : (
+        ) : ready ? (
           <form onSubmit={handleSubmit}>
             <div className="field">
               <label htmlFor="password">Neues Passwort</label>
@@ -77,7 +107,7 @@ export default function ResetPasswordPage() {
               {busy ? 'Bitte warten…' : 'Passwort speichern'}
             </button>
           </form>
-        )}
+        ) : null}
 
         <Link href="/login" className="textLink">
           Zurück zum Login
