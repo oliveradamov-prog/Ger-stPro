@@ -101,7 +101,7 @@ export default function NewLogForm() {
         user_id: user.id,
         log_date: form.log_date,
         description: form.description.trim(),
-        work_description: form.work_description.trim() || null,
+        work_description: form.work_description.trim() || '',
         [COL_WORKERS_NAMES]: workersArr,
         [COL_SITE_MANAGERS_NAMES]: managersArr,
         [COL_WORKERS_COUNT]: workersArr.length,

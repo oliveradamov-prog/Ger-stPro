@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -86,7 +87,11 @@ export default function LoginPage() {
             {busy ? 'Bitte warten…' : 'Sign In'}
           </button>
         </form>
-
+        
+        <Link href="/forgot-password" className="text-sm underline">
+          Passwort vergessen?
+        </Link>
+        
         <button className="secondaryBtn" onClick={signUp} disabled={busy} type="button">
           Create account
         </button>
