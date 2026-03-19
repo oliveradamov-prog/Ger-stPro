@@ -12,7 +12,11 @@ export default function TopBar() {
   const [email, setEmail] = useState('')
   const [loadingUser, setLoadingUser] = useState(true)
 
-  const shouldHide = pathname === '/login'
+  const shouldHide =
+    pathname === '/login' ||
+    pathname === '/forgot-password' ||
+    pathname === '/reset-password' ||
+    pathname === '/auth/callback'
 
   useEffect(() => {
     let active = true

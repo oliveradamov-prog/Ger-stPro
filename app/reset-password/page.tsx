@@ -1,13 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
 export default function ResetPasswordPage() {
+  const router = useRouter()
   const [password, setPassword] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    async function checkSession() {
+      const { data, error } = await supabase.auth.getSession()
+
+      if (error || !data.session) {
+        setMsg('A jelszó-visszaállító link érvénytelen vagy lejárt.')
+      }
+
+      setChecking(false)
+    }
+
+    checkSession()
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -21,7 +38,10 @@ export default function ResetPasswordPage() {
     if (error) {
       setMsg(error.message)
     } else {
-      setMsg('Passwort erfolgreich geändert.')
+      setMsg('Passwort erfolgreich geändert. Weiterleitung zum Login...')
+      setTimeout(() => {
+        router.replace('/login')
+      }, 1500)
     }
 
     setBusy(false)
@@ -36,24 +56,28 @@ export default function ResetPasswordPage() {
           Gib hier dein neues Passwort ein.
         </p>
 
-        <form onSubmit={handleSubmit}>
-          <div className="field">
-            <label htmlFor="password">Neues Passwort</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="********"
-              autoComplete="new-password"
-              required
-            />
-          </div>
+        {checking ? (
+          <div className="message">Bitte warten...</div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="field">
+              <label htmlFor="password">Neues Passwort</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="********"
+                autoComplete="new-password"
+                required
+              />
+            </div>
 
-          <button className="primaryBtn" type="submit" disabled={busy}>
-            {busy ? 'Bitte warten…' : 'Passwort speichern'}
-          </button>
-        </form>
+            <button className="primaryBtn" type="submit" disabled={busy}>
+              {busy ? 'Bitte warten…' : 'Passwort speichern'}
+            </button>
+          </form>
+        )}
 
         <Link href="/login" className="textLink">
           Zurück zum Login
