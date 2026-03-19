@@ -1,19 +1,20 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
 
   useEffect(() => {
     async function handleAuth() {
-      const error = searchParams.get('error')
-      const errorCode = searchParams.get('error_code')
-      const code = searchParams.get('code')
-      const type = searchParams.get('type')
+      const url = new URL(window.location.href)
+
+      const error = url.searchParams.get('error')
+      const errorCode = url.searchParams.get('error_code')
+      const code = url.searchParams.get('code')
+      const type = url.searchParams.get('type')
 
       if (error) {
         router.replace(`/login?error=${encodeURIComponent(errorCode || error)}`)
@@ -41,7 +42,7 @@ export default function AuthCallbackPage() {
     }
 
     handleAuth()
-  }, [router, searchParams])
+  }, [router])
 
   return (
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
