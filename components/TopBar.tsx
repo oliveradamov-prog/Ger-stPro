@@ -57,8 +57,7 @@ export default function TopBar() {
   async function logout() {
     await supabase.auth.signOut()
     setMenuOpen(false)
-    router.push('/login')
-    router.refresh()
+    window.location.href = '/login'
   }
 
   return (

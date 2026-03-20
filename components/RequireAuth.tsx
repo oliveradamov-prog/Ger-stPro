@@ -22,6 +22,8 @@ export default function RequireAuth({ children }: RequireAuthProps) {
       if (!mounted) return
 
       if (error || !data.session) {
+        setAllowed(false)
+        setChecking(false)
         router.replace('/login')
         return
       }
@@ -38,6 +40,8 @@ export default function RequireAuth({ children }: RequireAuthProps) {
       if (!mounted) return
 
       if (!session) {
+        setAllowed(false)
+        setChecking(false)
         router.replace('/login')
         return
       }
