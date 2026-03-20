@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabaseClient'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
+
   const [password, setPassword] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
@@ -19,27 +20,42 @@ export default function ResetPasswordPage() {
         const url = new URL(window.location.href)
         const error = url.searchParams.get('error')
         const errorCode = url.searchParams.get('error_code')
+        const code = url.searchParams.get('code')
 
+        // ❌ ha Supabase hibát küld
         if (error) {
           setMsg(`Fehler: ${errorCode || error}`)
-          setChecking(false)
           return
         }
 
-        // 🔥 FONTOS: URL tisztítás
-        window.history.replaceState({}, '', '/reset-password')
+        // 🔥 CODE → SESSION
+        if (code) {
+          const { error: exchangeError } =
+            await supabase.auth.exchangeCodeForSession(code)
 
-        const { data, error: sessionError } = await supabase.auth.getSession()
+          if (exchangeError) {
+            setMsg(`Link ungültig oder abgelaufen: ${exchangeError.message}`)
+            return
+          }
+
+          // URL tisztítás
+          window.history.replaceState({}, '', '/reset-password')
+        }
+
+        // 🔍 session ellenőrzés
+        const { data, error: sessionError } =
+          await supabase.auth.getSession()
 
         if (sessionError || !data.session) {
           setMsg('Der Zurücksetzungslink ist ungültig oder abgelaufen.')
-          setChecking(false)
           return
         }
 
         setReady(true)
       } catch {
-        setMsg('Beim Laden der Passwort-Zurücksetzung ist ein Fehler aufgetreten.')
+        setMsg(
+          'Beim Laden der Passwort-Zurücksetzung ist ein Fehler aufgetreten.'
+        )
       } finally {
         setChecking(false)
       }
@@ -53,12 +69,14 @@ export default function ResetPasswordPage() {
     setBusy(true)
     setMsg('')
 
-    const { error } = await supabase.auth.updateUser({ password })
+    const { error } = await supabase.auth.updateUser({
+      password,
+    })
 
     if (error) {
       setMsg(error.message)
     } else {
-      setMsg('Passwort erfolgreich geändert. Weiterleitung zum Login...')
+      setMsg('Passwort erfolgreich geändert. Weiterleitung...')
       setTimeout(() => {
         router.replace('/login')
       }, 1500)
@@ -71,8 +89,11 @@ export default function ResetPasswordPage() {
     <div className="loginPage">
       <div className="card">
         <div className="brand">GerüstPro</div>
+
         <h1>Neues Passwort</h1>
-        <p className="subtitle">Gib hier dein neues Passwort ein.</p>
+        <p className="subtitle">
+          Gib hier dein neues Passwort ein.
+        </p>
 
         {checking ? (
           <div className="message">Bitte warten...</div>
@@ -130,7 +151,6 @@ export default function ResetPasswordPage() {
         .brand {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
           font-size: 14px;
           font-weight: 800;
           color: #e5e7eb;
@@ -144,7 +164,6 @@ export default function ResetPasswordPage() {
         h1 {
           margin: 0 0 10px;
           font-size: 32px;
-          line-height: 1.05;
           color: #f8fafc;
           font-weight: 900;
         }
@@ -153,7 +172,6 @@ export default function ResetPasswordPage() {
           margin: 0 0 20px;
           color: #a1a1aa;
           font-size: 15px;
-          line-height: 1.5;
           font-weight: 700;
         }
 
@@ -175,36 +193,23 @@ export default function ResetPasswordPage() {
 
         input {
           width: 100%;
-          box-sizing: border-box;
           border: 1px solid rgba(255, 255, 255, 0.12);
           background: rgba(255, 255, 255, 0.08);
           color: #f8fafc;
           border-radius: 16px;
-          padding: 14px 14px;
+          padding: 14px;
           font-size: 16px;
-          outline: none;
-        }
-
-        input::placeholder {
-          color: #a1a1aa;
         }
 
         .primaryBtn {
           width: 100%;
-          border: 0;
           border-radius: 16px;
-          padding: 14px 16px;
+          padding: 14px;
           font-size: 16px;
           font-weight: 900;
-          cursor: pointer;
           color: #f8fafc;
           background: rgba(255, 255, 255, 0.14);
-          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-        }
-
-        .primaryBtn:disabled {
-          opacity: 0.7;
-          cursor: default;
+          border: none;
         }
 
         .textLink {
@@ -224,7 +229,6 @@ export default function ResetPasswordPage() {
           border-radius: 14px;
           padding: 12px 14px;
           font-size: 14px;
-          line-height: 1.5;
         }
       `}</style>
     </div>
