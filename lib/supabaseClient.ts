@@ -8,16 +8,7 @@ const safeStorage: SupportedStorage = {
     if (typeof window === 'undefined') return null
 
     try {
-      const value = window.localStorage.getItem(key)
-      if (!value) return null
-
-      try {
-        JSON.parse(value)
-        return value
-      } catch {
-        window.localStorage.removeItem(key)
-        return null
-      }
+      return window.localStorage.getItem(key)
     } catch {
       return null
     }
@@ -25,6 +16,7 @@ const safeStorage: SupportedStorage = {
 
   setItem(key: string, value: string) {
     if (typeof window === 'undefined') return
+
     try {
       window.localStorage.setItem(key, value)
     } catch {}
@@ -32,6 +24,7 @@ const safeStorage: SupportedStorage = {
 
   removeItem(key: string) {
     if (typeof window === 'undefined') return
+
     try {
       window.localStorage.removeItem(key)
     } catch {}
