@@ -19,7 +19,6 @@ export default function ResetPasswordPage() {
         const url = new URL(window.location.href)
         const error = url.searchParams.get('error')
         const errorCode = url.searchParams.get('error_code')
-        const code = url.searchParams.get('code')
 
         if (error) {
           setMsg(`Fehler: ${errorCode || error}`)
@@ -27,19 +26,11 @@ export default function ResetPasswordPage() {
           return
         }
 
-        if (code) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-          if (exchangeError) {
-            setMsg(`Link ungültig oder abgelaufen: ${exchangeError.message}`)
-            setChecking(false)
-            return
-          }
-
-          // kitisztítjuk a code-ot az URL-ből
-          window.history.replaceState({}, '', '/reset-password')
-        }
+        // 🔥 FONTOS: URL tisztítás
+        window.history.replaceState({}, '', '/reset-password')
 
         const { data, error: sessionError } = await supabase.auth.getSession()
+
         if (sessionError || !data.session) {
           setMsg('Der Zurücksetzungslink ist ungültig oder abgelaufen.')
           setChecking(false)
