@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import RequireAuth from '@/components/RequireAuth'
 
 type Project = {
   id: string
@@ -99,84 +100,84 @@ export default function ProjectDetailsPage() {
     }
   }, [projectId])
 
-  if (!projectId) {
-    return (
-      <div className="page">
-        <h1 className="h1">Projekt</h1>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Projekt-ID fehlt in der URL.
-        </p>
-        <style jsx>{styles}</style>
-      </div>
-    )
-  }
-
   return (
-    <div className="page">
-      <div className="topRow">
-        <div>
-          <div className="kicker">GerüstPro</div>
-          <h1 className="h1">{project?.name ?? 'Projekt'}</h1>
+    <RequireAuth>
+      {!projectId ? (
+        <div className="page">
+          <h1 className="h1">Projekt</h1>
+          <p className="muted" style={{ marginTop: 8 }}>
+            Projekt-ID fehlt in der URL.
+          </p>
+          <style jsx>{styles}</style>
+        </div>
+      ) : (
+        <div className="page">
+          <div className="topRow">
+            <div>
+              <div className="kicker">GerüstPro</div>
+              <h1 className="h1">{project?.name ?? 'Projekt'}</h1>
 
-          <div className="metaBlock">
-            <div className="metaLine">
-              <span className="metaLabel">Standort / Baustelle:</span>{' '}
-              <span>{project?.location || '—'}</span>
+              <div className="metaBlock">
+                <div className="metaLine">
+                  <span className="metaLabel">Standort / Baustelle:</span>{' '}
+                  <span>{project?.location || '—'}</span>
+                </div>
+                <div className="metaLine">
+                  <span className="metaLabel">Client / Auftraggeber:</span>{' '}
+                  <span>{project?.client || '—'}</span>
+                </div>
+              </div>
             </div>
-            <div className="metaLine">
-              <span className="metaLabel">Client / Auftraggeber:</span>{' '}
-              <span>{project?.client || '—'}</span>
+
+            <div className="btnRow">
+              <Link className="btn" href="/projects">
+                Alle Projekte
+              </Link>
+              <Link className="btnPrimary" href={`/projects/${projectId}/new-log`}>
+                Neuer Tagesbericht
+              </Link>
             </div>
           </div>
-        </div>
 
-        <div className="btnRow">
-          <Link className="btn" href="/projects">
-            Alle Projekte
-          </Link>
-          <Link className="btnPrimary" href={`/projects/${projectId}/new-log`}>
-            Neuer Tagesbericht
-          </Link>
-        </div>
-      </div>
+          {msg ? <div className="error">{msg}</div> : null}
 
-      {msg ? <div className="error">{msg}</div> : null}
-
-      {loading ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          Wird geladen…
-        </p>
-      ) : (
-        <div style={{ marginTop: 18 }}>
-          <h2 className="h2">Tagesberichte</h2>
-
-          {logs.length === 0 ? (
-            <div className="empty">
-              <p style={{ margin: 0 }}>Noch keine Tagesberichte vorhanden.</p>
-              <p style={{ marginTop: 8 }}>
-                Klicke auf <b>Neuer Tagesbericht</b>, um den ersten Eintrag zu erstellen.
-              </p>
-            </div>
+          {loading ? (
+            <p className="muted" style={{ marginTop: 16 }}>
+              Wird geladen…
+            </p>
           ) : (
-            <div className="grid">
-              {logs.map((log) => (
-                <Link
-                  key={log.id}
-                  href={`/projects/${projectId}/logs/${log.id}`}
-                  className="logCard"
-                >
-                  <div className="date">{formatDate(log.log_date)}</div>
-                  <div className="title">{shortText(log.description, 90)}</div>
-                  <div className="desc">{shortText(log.work_description, 130)}</div>
-                </Link>
-              ))}
+            <div style={{ marginTop: 18 }}>
+              <h2 className="h2">Tagesberichte</h2>
+
+              {logs.length === 0 ? (
+                <div className="empty">
+                  <p style={{ margin: 0 }}>Noch keine Tagesberichte vorhanden.</p>
+                  <p style={{ marginTop: 8 }}>
+                    Klicke auf <b>Neuer Tagesbericht</b>, um den ersten Eintrag zu erstellen.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid">
+                  {logs.map((log) => (
+                    <Link
+                      key={log.id}
+                      href={`/projects/${projectId}/logs/${log.id}`}
+                      className="logCard"
+                    >
+                      <div className="date">{formatDate(log.log_date)}</div>
+                      <div className="title">{shortText(log.description, 90)}</div>
+                      <div className="desc">{shortText(log.work_description, 130)}</div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           )}
+
+          <style jsx>{styles}</style>
         </div>
       )}
-
-      <style jsx>{styles}</style>
-    </div>
+    </RequireAuth>
   )
 }
 
