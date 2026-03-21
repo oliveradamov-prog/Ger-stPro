@@ -171,6 +171,7 @@ export default function LogEditPage() {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [meetings, setMeetings] = useState<MeetingRow[]>([emptyMeetingRow()])
   const [events, setEvents] = useState<EventRow[]>([emptyEventRow()])
+  const [dropIndex, setDropIndex] = useState<number | null>(null)
 
   const [photos, setPhotos] = useState<PhotoRow[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
@@ -771,28 +772,46 @@ export default function LogEditPage() {
 
             <div className="rows">
               {workers.map((row, idx) => (
-                <div
-                  key={row.id}
-                  className="subCard"
-                  draggable
-                  onDragStart={() => setDragIndex(idx)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => {
-                    if (dragIndex === null || dragIndex === idx) return
+          <div
+            key={row.id}
+            className={`subCard ${dragIndex === idx ? 'dragging' : ''} ${dropIndex === idx ? 'dropTarget' : ''}`}
+            draggable
+            onDragStart={() => {
+              setDragIndex(idx)
+              setDropIndex(idx)
+            }}
+            onDragOver={(e) => {
+              e.preventDefault()
+              if (dropIndex !== idx) setDropIndex(idx)
+            }}
+            onDragEnter={() => {
+              if (dropIndex !== idx) setDropIndex(idx)
+            }}
+            onDragEnd={() => {
+              setDragIndex(null)
+              setDropIndex(null)
+            }}
+            onDrop={() => {
+              if (dragIndex === null || dragIndex === idx) {
+                setDragIndex(null)
+                setDropIndex(null)
+                return
+              }
 
-                    setWorkers((prev) => {
-                      const updated = [...prev]
-                      const dragged = updated[dragIndex]
+              setWorkers((prev) => {
+                const updated = [...prev]
+                const dragged = updated[dragIndex]
 
-                      updated.splice(dragIndex, 1)
-                      updated.splice(idx, 0, dragged)
+                updated.splice(dragIndex, 1)
+                updated.splice(idx, 0, dragged)
 
-                      return updated
-                    })
+                return updated
+              })
 
-                    setDragIndex(null)
-                  }}
-                >
+              setDragIndex(null)
+              setDropIndex(null)
+            }}
+          >
                   <div className="rowTop">
                     <div className="miniTitle">Mitarbeiter #{idx + 1}</div>
 
@@ -1084,7 +1103,36 @@ export default function LogEditPage() {
         @media(max-width:720px){.two,.three,.four{grid-template-columns:1fr;}.btn,.btnPrimary{flex:1;}}
 
         .card{border:1px solid var(--border);background:var(--chip);border-radius:18px;padding:16px;overflow:hidden;}
-        .subCard{border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:12px;background:rgba(255,255,255,.02);}
+        .subCard{
+          border:1px solid rgba(255,255,255,.08);
+          border-radius:16px;
+          padding:12px;
+          background:rgba(255,255,255,.02);
+          transition:
+            transform .16s ease,
+            opacity .16s ease,
+            border-color .16s ease,
+            box-shadow .16s ease,
+            background .16s ease;
+        }
+
+        .subCard[draggable="true"]{
+          cursor:grab;
+        }
+
+        .subCard.dragging{
+          opacity:.72;
+          transform:scale(.985);
+          border-color:rgba(255,255,255,.24);
+          box-shadow:0 14px 30px rgba(0,0,0,.22);
+          background:rgba(255,255,255,.06);
+        }
+
+        .subCard.dropTarget{
+          border-color:rgba(255,255,255,.35);
+          background:rgba(255,255,255,.08);
+          box-shadow:0 0 0 2px rgba(255,255,255,.08);
+        }
         .rows{display:grid;gap:12px;margin-top:12px;}
         .sectionTop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
         .rowTop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
