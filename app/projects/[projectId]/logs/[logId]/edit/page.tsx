@@ -444,13 +444,13 @@ export default function LogEditPage() {
       if (deleteWorkersError) throw deleteWorkersError
 
       if (cleanedWorkers.length > 0) {
-        const workerPayload = cleanedWorkers.map((row) => ({
+        const workerPayload = cleanedWorkers.map((row, index) => ({
           log_id: logId,
           company: row.company,
           name: row.name,
           hours: row.hours ? Number(row.hours.replace(',', '.')) : null,
           time_range: row.time_range,
-          sort_order: row.sort_order,
+          sort_order: index
         }))
 
         const { error: workerInsertError } = await supabase
@@ -770,7 +770,28 @@ export default function LogEditPage() {
 
             <div className="rows">
               {workers.map((row, idx) => (
-                <div key={row.id} className="subCard">
+                <div
+                  key={row.id}
+                  className="subCard"
+                  draggable
+                  onDragStart={() => setDragIndex(idx)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (dragIndex === null || dragIndex === idx) return
+
+                    setWorkers((prev) => {
+                      const updated = [...prev]
+                      const dragged = updated[dragIndex]
+
+                      updated.splice(dragIndex, 1)
+                      updated.splice(idx, 0, dragged)
+
+                      return updated
+                    })
+
+                    setDragIndex(null)
+                  }}
+                >
                   <div className="rowTop">
                     <div className="miniTitle">Mitarbeiter #{idx + 1}</div>
 

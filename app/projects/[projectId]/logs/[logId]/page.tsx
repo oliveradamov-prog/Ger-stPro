@@ -170,6 +170,7 @@ export default function LogDetailsPage() {
             .from('daily_log_workers')
             .select('id, log_id, company, name, hours, time_range')
             .eq('log_id', logId)
+            .order('sort_order', { ascending: true, nullsFirst: false })
             .order('created_at', { ascending: true }),
           supabase
             .from('daily_log_meetings')
