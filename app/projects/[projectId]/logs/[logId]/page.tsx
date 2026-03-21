@@ -343,7 +343,7 @@ export default function LogDetailsPage() {
 
           <div className="grid">
             <div className="card">
-              <div className="cardTitle">Mitarbeiter / Firmen / Stunden / Zeit</div>
+              <div className="cardTitle">Firmen / Mitarbeiter / Stunden / Zeit</div>
 
               {workers.length === 0 ? (
                 <div className="muted" style={{ fontWeight: 900 }}>
