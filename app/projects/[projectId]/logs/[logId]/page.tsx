@@ -5,11 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
-const COL_WORKERS_COUNT = 'workers_count'
-const COL_SITE_MANAGERS_COUNT = 'site_managers_count'
-const COL_WORKERS_NAMES = 'workers_names'
-const COL_SITE_MANAGERS_NAMES = 'site_managers_names'
-
 const PHOTOS_BUCKET = process.env.NEXT_PUBLIC_PHOTOS_BUCKET || 'DAILY-LOG-PHOTOS'
 const PHOTOS_TABLE = 'daily_log_photos'
 
@@ -20,11 +15,13 @@ type DailyLog = {
   log_date: string
   description: string | null
   work_description: string | null
+  remarks: string | null
+  external_company: string | null
   created_at: string
-  [COL_WORKERS_COUNT]?: number | null
-  [COL_SITE_MANAGERS_COUNT]?: number | null
-  [COL_WORKERS_NAMES]?: string | string[] | null
-  [COL_SITE_MANAGERS_NAMES]?: string | string[] | null
+  workers_count?: number | null
+  site_managers_count?: number | null
+  workers_names?: string[] | null
+  site_managers_names?: string[] | null
 }
 
 type Project = {
@@ -32,12 +29,38 @@ type Project = {
   name: string
   location: string | null
   client: string | null
+  logo_url?: string | null
 }
 
 type PhotoRow = {
   log_id: string
   path: string
   created_at?: string
+}
+
+type WorkerRow = {
+  id: string
+  log_id: string
+  company: string | null
+  name: string
+  hours: number | null
+  time_range: string | null
+}
+
+type MeetingRow = {
+  id: string
+  log_id: string
+  thema: string | null
+  termin: string | null
+}
+
+type EventRow = {
+  id: string
+  log_id: string
+  text: string | null
+  erlediger: string | null
+  status: string | null
+  termin: string | null
 }
 
 function formatDateLong(dateStr: string) {
@@ -55,34 +78,16 @@ function formatDateTime(dateStr?: string) {
   return new Date(dateStr).toLocaleString('de-DE')
 }
 
-function asText(v: any) {
+function asText(v: unknown) {
   if (v == null) return ''
   if (Array.isArray(v)) return v.join(', ')
   return String(v)
 }
 
-function safeFileName(name: string) {
-  return String(name || 'file').replace(/[^\w.\-]+/g, '_')
-}
-
-function blobToDataUrl(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve(String(r.result))
-    r.onerror = reject
-    r.readAsDataURL(blob)
-  })
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1500)
+function formatHours(v: number | null) {
+  if (v == null) return '—'
+  const s = String(v).replace('.', ',')
+  return s
 }
 
 export default function LogDetailsPage() {
@@ -101,15 +106,15 @@ export default function LogDetailsPage() {
 
   const [project, setProject] = useState<Project | null>(null)
   const [log, setLog] = useState<DailyLog | null>(null)
+  const [workers, setWorkers] = useState<WorkerRow[]>([])
+  const [meetings, setMeetings] = useState<MeetingRow[]>([])
+  const [events, setEvents] = useState<EventRow[]>([])
 
   const [photos, setPhotos] = useState<PhotoRow[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
-  const [photoPdfUrls, setPhotoPdfUrls] = useState<Record<string, string>>({})
 
-  const [pdfImgsLoading, setPdfImgsLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState('')
-  const [pdfBusy, setPdfBusy] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -126,7 +131,7 @@ export default function LogDetailsPage() {
       try {
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
-          .select('id, name, location, client')
+          .select('id, name, location, client, logo_url')
           .eq('id', projectId)
           .single()
 
@@ -135,13 +140,7 @@ export default function LogDetailsPage() {
         const { data: logData, error: logError } = await supabase
           .from('daily_logs')
           .select(
-            [
-              'id, project_id, user_id, log_date, description, work_description, created_at',
-              COL_WORKERS_COUNT,
-              COL_SITE_MANAGERS_COUNT,
-              COL_WORKERS_NAMES,
-              COL_SITE_MANAGERS_NAMES,
-            ].join(', ')
+            'id, project_id, user_id, log_date, description, work_description, remarks, external_company, created_at, workers_count, site_managers_count, workers_names, site_managers_names'
           )
           .eq('id', logId)
           .eq('project_id', projectId)
@@ -149,30 +148,52 @@ export default function LogDetailsPage() {
 
         if (logError) throw logError
 
-        const { data: photoRows, error: photoError } = await supabase
-          .from(PHOTOS_TABLE)
-          .select('log_id, path, created_at')
-          .eq('log_id', logId)
-          .order('created_at', { ascending: false })
+        const [
+          workersRes,
+          meetingsRes,
+          eventsRes,
+          photosRes,
+        ] = await Promise.all([
+          supabase
+            .from('daily_log_workers')
+            .select('id, log_id, company, name, hours, time_range')
+            .eq('log_id', logId)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from('daily_log_meetings')
+            .select('id, log_id, thema, termin')
+            .eq('log_id', logId)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from('daily_log_events')
+            .select('id, log_id, text, erlediger, status, termin')
+            .eq('log_id', logId)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from(PHOTOS_TABLE)
+            .select('log_id, path, created_at')
+            .eq('log_id', logId)
+            .order('created_at', { ascending: false }),
+        ])
 
-        if (photoError) console.warn(photoError.message)
-
-        const safeLog = (Array.isArray(logData) ? logData[0] : logData) as DailyLog | null
-
-        if (!safeLog) {
-          throw new Error('Log nicht gefunden')
-        }
+        if (workersRes.error) throw workersRes.error
+        if (meetingsRes.error) throw meetingsRes.error
+        if (eventsRes.error) throw eventsRes.error
+        if (photosRes.error) console.warn(photosRes.error.message)
 
         if (!cancelled) {
           setProject(projectData as Project)
-          setLog(safeLog)
-          setPhotos((photoRows as PhotoRow[]) ?? [])
+          setLog(logData as DailyLog)
+          setWorkers((workersRes.data as WorkerRow[]) ?? [])
+          setMeetings((meetingsRes.data as MeetingRow[]) ?? [])
+          setEvents((eventsRes.data as EventRow[]) ?? [])
+          setPhotos((photosRes.data as PhotoRow[]) ?? [])
         }
-        } catch (e: any) {
-          if (!cancelled) setMsg(e?.message ?? 'Etwas ist schiefgelaufen.')
-        } finally {
-          if (!cancelled) setLoading(false)
-        }
+      } catch (e: any) {
+        if (!cancelled) setMsg(e?.message ?? 'Etwas ist schiefgelaufen.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
 
     load()
@@ -216,596 +237,6 @@ export default function LogDetailsPage() {
     }
   }, [photos])
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function buildPdfUrls() {
-      if (!photos.length) {
-        setPhotoPdfUrls({})
-        return
-      }
-
-      setPdfImgsLoading(true)
-
-      try {
-        const limited = photos.slice(0, 12)
-        const pairs: Array<[string, string]> = []
-
-        for (const p of limited) {
-          const { data, error } = await supabase.storage.from(PHOTOS_BUCKET).download(p.path)
-          if (error) throw error
-          const dataUrl = await blobToDataUrl(data as Blob)
-          pairs.push([p.path, dataUrl])
-        }
-
-        if (!cancelled) setPhotoPdfUrls(Object.fromEntries(pairs))
-      } catch {
-        if (!cancelled) setPhotoPdfUrls({})
-      } finally {
-        if (!cancelled) setPdfImgsLoading(false)
-      }
-    }
-
-    buildPdfUrls()
-    return () => {
-      cancelled = true
-    }
-  }, [photos])
-  async function normalizeImageForPdf(src: string): Promise<{
-    dataUrl: string
-    width: number
-    height: number
-  }> {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.src = src
-
-    await new Promise<void>((resolve) => {
-      if (img.complete) return resolve()
-      img.onload = () => resolve()
-      img.onerror = () => resolve()
-    })
-
-    const width = img.naturalWidth || 1200
-    const height = img.naturalHeight || 800
-
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) {
-      return { dataUrl: src, width, height }
-    }
-
-    ctx.drawImage(img, 0, 0, width, height)
-
-    return {
-      dataUrl: canvas.toDataURL('image/jpeg', 0.92),
-      width,
-      height,
-    }
-  }
-
-  async function exportPdf() {
-    setMsg('')
-
-        try {
-          setPdfBusy(true)
-
-          const {
-            data: { user },
-          } = await supabase.auth.getUser()
-
-          if (!user) {
-            throw new Error('Nicht eingeloggt.')
-          }
-
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('role, plan, trial_ends_at')
-            .eq('id', user.id)
-            .single()
-
-          if (profileError) {
-            throw new Error('Profil konnte nicht geprüft werden.')
-          }
-
-          const isAdmin = profile?.role === 'admin'
-          const isPro = profile?.plan === 'pro'
-
-          let trialActive = false
-          if (profile?.trial_ends_at) {
-            trialActive = new Date(profile.trial_ends_at).getTime() > Date.now()
-          }
-
-          if (!isAdmin && !isPro && !trialActive) {
-            throw new Error('Deine Testphase ist abgelaufen. Bitte gehe auf Upgrade.')
-          }
-
-          const [{ jsPDF }] = await Promise.all([import('jspdf')])
-
-
-      const pdf = new jsPDF('p', 'pt', 'a4')
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const pageHeight = pdf.internal.pageSize.getHeight()
-
-      const margin = 28
-      const contentWidth = pageWidth - margin * 2
-
-      let y = margin
-
-      const addText = (text: string, x: number, top: number, options?: {
-        size?: number
-        bold?: boolean
-        color?: number[]
-        maxWidth?: number
-        lineHeight?: number
-      }) => {
-        // ...
-        const size = options?.size ?? 12
-        const bold = options?.bold ?? false
-        const color = options?.color ?? [17, 17, 17]
-        const maxWidth = options?.maxWidth ?? contentWidth
-        const lineHeight = options?.lineHeight ?? 1.35
-
-        pdf.setFont('helvetica', bold ? 'bold' : 'normal')
-        pdf.setFontSize(size)
-        pdf.setTextColor(color[0], color[1], color[2])
-
-        const lines = pdf.splitTextToSize(text || '', maxWidth)
-        pdf.text(lines, x, top)
-
-        return top + lines.length * size * lineHeight
-      }
-
-      const ensureSpace = (heightNeeded: number) => {
-        if (y + heightNeeded > pageHeight - margin) {
-          pdf.addPage()
-          y = margin
-        }
-      }
-
-      const logTitle = log?.description?.trim() ? log.description : 'Tagesbericht'
-      const projectTitle = project?.name ?? 'Projekt'
-      const photoCount = photos.length
-
-      ensureSpace(140)
-
-      y = addText(logTitle, margin, y, { size: 24, bold: true })
-      y += 10
-
-      y = addText(`Projekt: ${projectTitle}`, margin, y, { size: 11 })
-      y = addText(`Baustelle: ${project?.location || '—'}`, margin, y, { size: 11 })
-      y = addText(`Client / Auftraggeber: ${project?.client || '—'}`, margin, y, { size: 11 })
-      y = addText(`Datum: ${formatDateLong(log?.log_date || '')}`, margin, y, { size: 11 })
-      y = addText(`Fotos: ${photoCount}`, margin, y, { size: 11 })
-
-      pdf.setFont('helvetica', 'bold')
-      pdf.setFontSize(11)
-      pdf.text(`Arbeiter: ${(log as any)?.[COL_WORKERS_COUNT] ?? 0}`, pageWidth - margin, margin + 12, {
-        align: 'right',
-      })
-      pdf.text(`Bauleiter: ${(log as any)?.[COL_SITE_MANAGERS_COUNT] ?? 0}`, pageWidth - margin, margin + 28, {
-        align: 'right',
-      })
-
-      y += 10
-      pdf.setDrawColor(229, 229, 229)
-      pdf.line(margin, y, pageWidth - margin, y)
-      y += 16
-
-      ensureSpace(80)
-      pdf.setDrawColor(229, 229, 229)
-      pdf.roundedRect(margin, y, contentWidth / 2 - 6, 54, 10, 10)
-      pdf.roundedRect(margin + contentWidth / 2 + 6, y, contentWidth / 2 - 6, 54, 10, 10)
-
-      y = addText('Arbeiternamen', margin + 10, y + 16, {
-        size: 11,
-        bold: true,
-        maxWidth: contentWidth / 2 - 26,
-      })
-      addText(asText((log as any)?.[COL_WORKERS_NAMES]) || '—', margin + 10, y + 4, {
-        size: 10,
-        maxWidth: contentWidth / 2 - 26,
-      })
-
-      const box2x = margin + contentWidth / 2 + 16
-      addText('Bauleiternamen', box2x, y - 11, {
-        size: 11,
-        bold: true,
-        maxWidth: contentWidth / 2 - 26,
-      })
-      addText(asText((log as any)?.[COL_SITE_MANAGERS_NAMES]) || '—', box2x, y + 4, {
-        size: 10,
-        maxWidth: contentWidth / 2 - 26,
-      })
-
-      y += 66
-
-      const workText = log?.work_description?.trim() ? log.work_description : '(leer)'
-      const workLines = pdf.splitTextToSize(workText, contentWidth - 20)
-      const workHeight = Math.max(60, workLines.length * 13 + 26)
-
-      ensureSpace(workHeight + 20)
-      pdf.roundedRect(margin, y, contentWidth, workHeight, 10, 10)
-      addText('Arbeitsbeschreibung', margin + 10, y + 16, {
-        size: 11,
-        bold: true,
-        maxWidth: contentWidth - 20,
-      })
-      addText(workText, margin + 10, y + 34, {
-        size: 10,
-        maxWidth: contentWidth - 20,
-        lineHeight: 1.4,
-      })
-
-      y += workHeight + 18
-
-      ensureSpace(30)
-      y = addText(`Fotos (${photoCount})`, margin, y, { size: 14, bold: true })
-      y += 6
-
-      if (photos.length > 0) {
-        const photosToUse = photos.slice(0, 12)
-
-        const cols = 2
-        const gapX = 10
-        const gapY = 14
-        const headerH = 18
-
-        const cellWidth = (contentWidth - gapX) / cols
-        const cellHeight = 145
-
-        let photoIndex = 0
-
-        while (photoIndex < photosToUse.length) {
-          const remainingHeight = pageHeight - margin - y - 24
-
-          // első oldalon alkalmazkodik a maradék helyhez
-          // későbbi oldalakon fix 2 sor = 4 kép
-          let rowsThisPage = 2
-
-          const oneRowHeight = headerH + cellHeight
-          const twoRowsHeight = headerH + cellHeight + gapY + headerH + cellHeight
-
-          if (remainingHeight < twoRowsHeight + 10) {
-            rowsThisPage = 1
-          }
-
-          if (remainingHeight < oneRowHeight + 10) {
-            pdf.addPage()
-            y = margin
-            rowsThisPage = 2
-          }
-
-          const maxItemsThisPage = cols * rowsThisPage
-
-          for (
-            let localIndex = 0;
-            localIndex < maxItemsThisPage && photoIndex < photosToUse.length;
-            localIndex++, photoIndex++
-          ) {
-            const p = photosToUse[photoIndex]
-            const col = localIndex % cols
-            const row = Math.floor(localIndex / cols)
-
-            const { dataUrl, width: naturalWidth, height: naturalHeight } =
-              await normalizeImageForPdf(photoUrls[p.path] || '')
-
-            const ratio = Math.min(cellWidth / naturalWidth, cellHeight / naturalHeight)
-            const renderWidth = Math.max(60, naturalWidth * ratio)
-            const renderHeight = Math.max(60, naturalHeight * ratio)
-
-            const blockX = margin + col * (cellWidth + gapX)
-            const blockY = y + row * (headerH + cellHeight + gapY)
-
-            addText(
-              `Foto ${photoIndex + 1} • ${formatDateTime(p.created_at)}`,
-              blockX,
-              blockY + 8,
-              { size: 8, color: [85, 85, 85], maxWidth: cellWidth }
-            )
-
-            const imgX = blockX + (cellWidth - renderWidth) / 2
-            const imgY = blockY + headerH + (cellHeight - renderHeight) / 2
-
-            try {
-              pdf.addImage(dataUrl, 'JPEG', imgX, imgY, renderWidth, renderHeight)
-            } catch {
-              try {
-                pdf.addImage(dataUrl, 'PNG', imgX, imgY, renderWidth, renderHeight)
-              } catch {}
-            }
-          }
-
-          y += rowsThisPage * (headerH + cellHeight) + (rowsThisPage - 1) * gapY + 12
-
-          if (photoIndex < photosToUse.length) {
-            pdf.addPage()
-            y = margin
-          }
-        }
-
-        if (photos.length > 12) {
-          ensureSpace(20)
-          y = addText(
-            'Hinweis: Im PDF werden die ersten 12 Fotos eingefügt, damit die Datei nicht zu groß wird.',
-            margin,
-            y,
-            { size: 10, color: [102, 102, 102] }
-          )
-          y += 8
-        }
-      } else {
-        y = addText('(Keine Fotos)', margin, y, { size: 10, color: [102, 102, 102] })
-        y += 8
-      }
-      const footerText = `Erstellt mit GerüstPro App • ${new Date().toLocaleString('de-DE')}`
-      const pageCount = pdf.getNumberOfPages()
-
-      for (let p = 1; p <= pageCount; p++) {
-        pdf.setPage(p)
-        pdf.setFont('helvetica', 'normal')
-        pdf.setFontSize(10)
-        pdf.setTextColor(119, 119, 119)
-        pdf.text(footerText, margin, pageHeight - 18)
-      }
-
-      const fileLogTitle = safeFileName(logTitle.slice(0, 80))
-      const fileProjTitle = safeFileName(projectTitle.slice(0, 60))
-      const blob = pdf.output('blob')
-      downloadBlob(blob, `${fileLogTitle}_${fileProjTitle}.pdf`)
-    } catch (e: any) {
-      setMsg(`PDF-Export fehlgeschlagen: ${e?.message ?? 'Unbekannter Fehler'}`)
-    } finally {
-      setPdfBusy(false)
-    }
-  }
-  async function printPage() {
-    try {
-      setMsg('')
-      setPdfBusy(true)
-
-      const [{ jsPDF }] = await Promise.all([import('jspdf')])
-
-      const pdf = new jsPDF('p', 'pt', 'a4')
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const pageHeight = pdf.internal.pageSize.getHeight()
-
-      const margin = 28
-      const contentWidth = pageWidth - margin * 2
-
-      let y = margin
-
-      const addText = (
-        text: string,
-        x: number,
-        top: number,
-        options?: {
-          size?: number
-          bold?: boolean
-          color?: number[]
-          maxWidth?: number
-          lineHeight?: number
-        }
-      ) => {
-        const size = options?.size ?? 12
-        const bold = options?.bold ?? false
-        const color = options?.color ?? [17, 17, 17]
-        const maxWidth = options?.maxWidth ?? contentWidth
-        const lineHeight = options?.lineHeight ?? 1.35
-
-        pdf.setFont('helvetica', bold ? 'bold' : 'normal')
-        pdf.setFontSize(size)
-        pdf.setTextColor(color[0], color[1], color[2])
-
-        const lines = pdf.splitTextToSize(text || '', maxWidth)
-        pdf.text(lines, x, top)
-
-        return top + lines.length * size * lineHeight
-      }
-
-      const ensureSpace = (heightNeeded: number) => {
-        if (y + heightNeeded > pageHeight - margin) {
-          pdf.addPage()
-          y = margin
-        }
-      }
-
-      const normalizeImageForPdf = async (src: string): Promise<{
-        dataUrl: string
-        width: number
-        height: number
-      }> => {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.src = src
-
-        await new Promise<void>((resolve) => {
-          if (img.complete) return resolve()
-          img.onload = () => resolve()
-          img.onerror = () => resolve()
-        })
-
-        const width = img.naturalWidth || 1200
-        const height = img.naturalHeight || 800
-
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          return { dataUrl: src, width, height }
-        }
-
-        ctx.drawImage(img, 0, 0, width, height)
-
-        return {
-          dataUrl: canvas.toDataURL('image/jpeg', 0.92),
-          width,
-          height,
-        }
-      }
-
-      const logTitle = log?.description?.trim() ? log.description : 'Tagesbericht'
-      const projectTitle = project?.name ?? 'Projekt'
-
-      y = addText(logTitle, margin, y + 10, { size: 28, bold: true })
-      y = addText(
-        `${log?.log_date ? new Date(log.log_date).toLocaleDateString('de-DE') : ''}  •  ${projectTitle}`,
-        margin,
-        y + 10,
-        { size: 12, bold: true, color: [70, 70, 70] }
-      )
-
-      y = addText(`Standort / Baustelle: ${project?.location || '—'}`, margin, y + 18, {
-        size: 11,
-        bold: true,
-      })
-      y = addText(`Client / Auftraggeber: ${project?.client || '—'}`, margin, y + 10, {
-        size: 11,
-        bold: true,
-      })
-
-      y += 16
-      y = addText('Arbeitsbeschreibung', margin, y + 10, {
-        size: 11,
-        bold: true,
-        color: [70, 70, 70],
-      })
-      y = addText(log?.work_description || '—', margin, y + 10, { size: 15, bold: true })
-
-      y += 18
-      const boxGap = 14
-      const boxWidth = (contentWidth - boxGap) / 2
-      const boxHeight = 72
-
-      pdf.setDrawColor(225, 225, 225)
-      pdf.roundedRect(margin, y, boxWidth, boxHeight, 12, 12)
-      pdf.roundedRect(margin + boxWidth + boxGap, y, boxWidth, boxHeight, 12, 12)
-
-      addText('Arbeiternamen', margin + 14, y + 24, { size: 10, bold: true })
-      addText(
-        Array.isArray(log?.workers_names)
-          ? log.workers_names.join(', ')
-          : ((log?.workers_names as any) || '—'),
-        margin + 14,
-        y + 46,
-        { size: 11 }
-      )
-
-      addText('Bauleiternamen', margin + boxWidth + boxGap + 14, y + 24, { size: 10, bold: true })
-      addText(
-        Array.isArray(log?.site_managers_names)
-          ? log.site_managers_names.join(', ')
-          : ((log?.site_managers_names as any) || '—'),
-        margin + boxWidth + boxGap + 14,
-        y + 46,
-        { size: 11 }
-      )
-
-      y += boxHeight + 24
-      y = addText(
-        `Arbeiter: ${log?.workers_count ?? 0}   •   Bauleiter: ${log?.site_managers_count ?? 0}`,
-        margin,
-        y,
-        { size: 11, bold: true, color: [70, 70, 70] }
-      )
-
-      y += 14
-      y = addText(`Fotos (${photos.length})`, margin, y + 8, { size: 18, bold: true })
-
-      if (photos.length > 0) {
-        const photosToUse = photos.slice(0, 12)
-        const cols = 2
-        const gapX = 10
-        const gapY = 14
-        const headerH = 18
-        const cellWidth = (contentWidth - gapX) / cols
-        const cellHeight = 145
-
-        let photoIndex = 0
-
-        while (photoIndex < photosToUse.length) {
-          const remainingHeight = pageHeight - margin - y - 24
-          let rowsThisPage = 2
-
-          const oneRowHeight = headerH + cellHeight
-          const twoRowsHeight = headerH + cellHeight + gapY + headerH + cellHeight
-
-          if (remainingHeight < twoRowsHeight + 10) rowsThisPage = 1
-          if (remainingHeight < oneRowHeight + 10) {
-            pdf.addPage()
-            y = margin
-            rowsThisPage = 2
-          }
-
-          const maxItemsThisPage = cols * rowsThisPage
-
-          for (
-            let localIndex = 0;
-            localIndex < maxItemsThisPage && photoIndex < photosToUse.length;
-            localIndex++, photoIndex++
-          ) {
-            const p = photosToUse[photoIndex]
-            const src = photoUrls[p.path] || ''
-            if (!src) continue
-
-            const col = localIndex % cols
-            const row = Math.floor(localIndex / cols)
-
-            const { dataUrl, width: naturalWidth, height: naturalHeight } =
-              await normalizeImageForPdf(src)
-
-            const ratio = Math.min(cellWidth / naturalWidth, cellHeight / naturalHeight)
-            const renderWidth = Math.max(60, naturalWidth * ratio)
-            const renderHeight = Math.max(60, naturalHeight * ratio)
-
-            const blockX = margin + col * (cellWidth + gapX)
-            const blockY = y + row * (headerH + cellHeight + gapY)
-
-            addText(`Foto ${photoIndex + 1} • ${formatDateTime(p.created_at)}`, blockX, blockY + 8, {
-              size: 8,
-              color: [85, 85, 85],
-              maxWidth: cellWidth,
-            })
-
-            const imgX = blockX + (cellWidth - renderWidth) / 2
-            const imgY = blockY + headerH + (cellHeight - renderHeight) / 2
-
-            pdf.addImage(dataUrl, 'JPEG', imgX, imgY, renderWidth, renderHeight)
-          }
-
-          y += rowsThisPage * (headerH + cellHeight) + (rowsThisPage - 1) * gapY + 12
-
-          if (photoIndex < photosToUse.length) {
-            pdf.addPage()
-            y = margin
-          }
-        }
-      } else {
-        y = addText('(Keine Fotos)', margin, y + 8, { size: 10, color: [102, 102, 102] })
-      }
-
-      const blob = pdf.output('blob')
-      const url = URL.createObjectURL(blob)
-
-      const win = window.open(url, '_blank')
-      if (win) {
-        win.onload = () => {
-          win.focus()
-          win.print()
-        }
-      }
-    } catch (e: any) {
-      setMsg(e?.message ?? 'Drucken fehlgeschlagen')
-    } finally {
-      setPdfBusy(false)
-    }
-  }
-
   if (!projectId || !logId) {
     return (
       <div className="page">
@@ -832,15 +263,9 @@ export default function LogDetailsPage() {
         <div className="btnRow">
           <button
             className="btn"
-            onClick={exportPdf}
+            onClick={() => window.print()}
             type="button"
-            disabled={pdfBusy || loading || !log}
-            title={pdfImgsLoading ? 'Bilder werden vorbereitet…' : ''}
           >
-            {pdfBusy ? 'PDF wird erstellt…' : pdfImgsLoading ? 'Bilder werden vorbereitet…' : 'PDF herunterladen'}
-          </button>
-
-          <button className="btn" onClick={printPage} type="button">
             Drucken
           </button>
 
@@ -862,57 +287,154 @@ export default function LogDetailsPage() {
         </p>
       ) : log ? (
         <>
-          <h1 className="h1" style={{ marginTop: 6 }}>
-            {logTitle}
-          </h1>
+          <div className="headerCard">
+            <div className="headerLeft">
+              <h1 className="h1">{logTitle}</h1>
 
-          <div className="meta">
-            <span>{formatDateLong(log.log_date)}</span>
-            <span className="dot">•</span>
-            <span className="strong">{projectTitle}</span>
-          </div>
+              <div className="meta">
+                <span>{formatDateLong(log.log_date)}</span>
+                <span className="dot">•</span>
+                <span className="strong">{projectTitle}</span>
+              </div>
 
-          <div className="metaBlock">
-            <div className="metaLine">
-              <span className="metaLabel">Standort / Baustelle:</span>{' '}
-              <span>{project?.location || '—'}</span>
+              <div className="metaBlock">
+                <div className="metaLine">
+                  <span className="metaLabel">Standort / Baustelle:</span>{' '}
+                  <span>{project?.location || '—'}</span>
+                </div>
+                <div className="metaLine">
+                  <span className="metaLabel">Client / Auftraggeber:</span>{' '}
+                  <span>{project?.client || '—'}</span>
+                </div>
+                <div className="metaLine">
+                  <span className="metaLabel">Fremdfirma / Bedolgozó cég:</span>{' '}
+                  <span>{log.external_company?.trim() ? log.external_company : '—'}</span>
+                </div>
+                <div className="metaLine">
+                  <span className="metaLabel">Bauleiternamen:</span>{' '}
+                  <span>{asText(log.site_managers_names) || '—'}</span>
+                </div>
+              </div>
             </div>
-            <div className="metaLine">
-              <span className="metaLabel">Client / Auftraggeber:</span>{' '}
-              <span>{project?.client || '—'}</span>
+
+            <div className="headerRight">
+              {project?.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={project.logo_url} alt="Firmenlogo" className="logo" />
+              ) : (
+                <div className="logoPlaceholder">Logo</div>
+              )}
             </div>
           </div>
-
-          <div className="divider" />
 
           <div className="grid">
             <div className="card">
-              <div className="cardTitle">Arbeitsbeschreibung</div>
+              <div className="cardTitle">Mitarbeiter / Firmen / Stunden / Zeit</div>
+
+              {workers.length === 0 ? (
+                <div className="muted" style={{ fontWeight: 900 }}>
+                  Keine Mitarbeiterdaten vorhanden.
+                </div>
+              ) : (
+                <div className="tableWrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Firma</th>
+                        <th>Mitarbeiter</th>
+                        <th>Stunden</th>
+                        <th>Zeit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {workers.map((row) => (
+                        <tr key={row.id}>
+                          <td>{row.company || '—'}</td>
+                          <td>{row.name || '—'}</td>
+                          <td>{formatHours(row.hours)}</td>
+                          <td>{row.time_range || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <div className="cardTitle">Ausgeführte Arbeiten</div>
               <div className="cardValue workDescription">
                 {log.work_description?.trim() ? log.work_description : '(leer)'}
               </div>
             </div>
 
             <div className="card">
-              <div className="cardTitle">Team</div>
-              <div className="crewGrid">
-                <div className="crewItem">
-                  <div className="crewLabel">Anzahl Arbeiter</div>
-                  <div className="crewValue">{(log as any)?.[COL_WORKERS_COUNT] ?? 0}</div>
-                </div>
-                <div className="crewItem">
-                  <div className="crewLabel">Anzahl Bauleiter</div>
-                  <div className="crewValue">{(log as any)?.[COL_SITE_MANAGERS_COUNT] ?? 0}</div>
-                </div>
-                <div className="crewItem">
-                  <div className="crewLabel">Arbeiternamen</div>
-                  <div className="crewText">{asText((log as any)?.[COL_WORKERS_NAMES]) || '—'}</div>
-                </div>
-                <div className="crewItem">
-                  <div className="crewLabel">Bauleiternamen</div>
-                  <div className="crewText">{asText((log as any)?.[COL_SITE_MANAGERS_NAMES]) || '—'}</div>
-                </div>
+              <div className="cardTitle">Bemerkungen</div>
+              <div className="cardValue workDescription">
+                {log.remarks?.trim() ? log.remarks : '(leer)'}
               </div>
+            </div>
+
+            <div className="card">
+              <div className="cardTitle">Besprechungen</div>
+
+              {meetings.length === 0 ? (
+                <div className="muted" style={{ fontWeight: 900 }}>
+                  Keine Besprechungen vorhanden.
+                </div>
+              ) : (
+                <div className="tableWrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Thema</th>
+                        <th>Termin</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {meetings.map((row) => (
+                        <tr key={row.id}>
+                          <td>{row.thema || '—'}</td>
+                          <td>{row.termin || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="card">
+              <div className="cardTitle">Vorkommnisse</div>
+
+              {events.length === 0 ? (
+                <div className="muted" style={{ fontWeight: 900 }}>
+                  Keine Vorkommnisse vorhanden.
+                </div>
+              ) : (
+                <div className="tableWrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Vorkommnis</th>
+                        <th>Erlediger</th>
+                        <th>Status</th>
+                        <th>Termin</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {events.map((row) => (
+                        <tr key={row.id}>
+                          <td>{row.text || '—'}</td>
+                          <td>{row.erlediger || '—'}</td>
+                          <td>{row.status || '—'}</td>
+                          <td>{row.termin || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             <div className="card">
@@ -976,14 +498,16 @@ export default function LogDetailsPage() {
       ) : (
         <div className="card">
           <div className="cardTitle">Nicht gefunden</div>
-          <div className="cardValue">Dieser Tagesbericht existiert nicht oder ist nicht zugänglich.</div>
+          <div className="cardValue">
+            Dieser Tagesbericht existiert nicht oder ist nicht zugänglich.
+          </div>
         </div>
       )}
 
       <style jsx>{baseStyles}</style>
 
       <style jsx>{`
-        .page{max-width:980px;margin:0 auto;padding:1rem;color:var(--text);overflow-x:hidden;}
+        .page{max-width:1080px;margin:0 auto;padding:1rem;color:var(--text);overflow-x:hidden;}
         .h1{font-size:44px;font-weight:950;margin:0;color:var(--text);word-break:break-word;}
         .muted{color:var(--muted);font-weight:800;}
         .error{margin-top:12px;color:#ff6b6b;font-weight:950;}
@@ -1012,6 +536,45 @@ export default function LogDetailsPage() {
         .btnPrimary:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(0,0,0,.22);}
         .btnPrimary:active{transform:translateY(0px) scale(.995);}
 
+        .headerCard{
+          margin-top:10px;
+          border:1px solid var(--border);
+          background:var(--chip);
+          border-radius:18px;
+          padding:18px;
+          display:grid;
+          grid-template-columns:1fr 140px;
+          gap:18px;
+          align-items:start;
+        }
+
+        .headerRight{
+          display:flex;
+          justify-content:flex-end;
+        }
+
+        .logo{
+          width:120px;
+          max-height:80px;
+          object-fit:contain;
+          border-radius:10px;
+          background:rgba(255,255,255,.03);
+          padding:8px;
+          border:1px solid var(--border);
+        }
+
+        .logoPlaceholder{
+          width:120px;
+          height:80px;
+          border-radius:10px;
+          border:1px dashed var(--border);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          color:var(--muted);
+          font-weight:900;
+        }
+
         .meta{margin-top:10px;color:var(--muted);font-weight:900;display:flex;gap:10px;flex-wrap:wrap;}
         .dot{opacity:.6;}
         .strong{color:var(--text);opacity:.95;}
@@ -1020,8 +583,7 @@ export default function LogDetailsPage() {
         .metaLine{color:var(--text);font-weight:800;line-height:1.4;}
         .metaLabel{color:var(--muted);font-weight:900;}
 
-        .divider{margin:18px 0;height:1px;background:var(--border);opacity:.7;}
-        .grid{display:grid;gap:14px;}
+        .grid{display:grid;gap:14px;margin-top:14px;}
         .card{
           border:1px solid var(--border);
           background:var(--chip);
@@ -1031,7 +593,8 @@ export default function LogDetailsPage() {
           overflow:hidden;
           min-width:0;
         }
-        .cardTitle{color:var(--muted);font-weight:950;font-size:14px;margin-bottom:8px;}
+
+        .cardTitle{color:var(--muted);font-weight:950;font-size:14px;margin-bottom:10px;}
         .cardValue{
           font-size:20px;
           font-weight:950;
@@ -1040,40 +603,52 @@ export default function LogDetailsPage() {
         }
 
         .workDescription{
-          max-height:40vh;
+          max-height:50vh;
           overflow-y:auto;
           overflow-x:hidden;
           padding-right:4px;
           white-space:pre-wrap;
           overflow-wrap:anywhere;
           word-break:break-word;
-          -webkit-overflow-scrolling:touch;
-          min-width:0;
         }
 
-        .crewGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-        @media(max-width:720px){
-          .crewGrid{grid-template-columns:1fr;}
-          .btn,.btnPrimary{flex:1;}
-        }
-
-        .crewItem{
-          border:1px solid var(--border);
-          background:rgba(255,255,255,.03);
+        .tableWrap{
+          width:100%;
+          overflow-x:auto;
+          border:1px solid rgba(255,255,255,.06);
           border-radius:14px;
-          padding:12px;
-          min-width:0;
-          overflow:hidden;
         }
-        .crewLabel{color:var(--muted);font-weight:950;font-size:13px;margin-bottom:6px;}
-        .crewValue{font-weight:950;font-size:22px;}
-        .crewText{
-          font-weight:900;
-          font-size:16px;
-          white-space:pre-wrap;
-          overflow-wrap:anywhere;
-          word-break:break-word;
-          min-width:0;
+
+        .table{
+          width:100%;
+          border-collapse:collapse;
+          min-width:640px;
+        }
+
+        .table th,
+        .table td{
+          text-align:left;
+          padding:12px 12px;
+          border-bottom:1px solid rgba(255,255,255,.08);
+          vertical-align:top;
+        }
+
+        .table th{
+          color:var(--muted);
+          font-size:13px;
+          font-weight:950;
+          background:rgba(255,255,255,.03);
+        }
+
+        .table td{
+          color:var(--text);
+          font-weight:800;
+          font-size:14px;
+          line-height:1.45;
+        }
+
+        .table tbody tr:last-child td{
+          border-bottom:none;
         }
 
         .photoMeta{
@@ -1083,7 +658,12 @@ export default function LogDetailsPage() {
         }
 
         .photos{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr));}
-        @media(max-width:720px){.photos{grid-template-columns:1fr;}}
+        @media(max-width:820px){.photos{grid-template-columns:1fr;}}
+        @media(max-width:720px){
+          .btn,.btnPrimary{flex:1;}
+          .headerCard{grid-template-columns:1fr;}
+          .headerRight{justify-content:flex-start;}
+        }
 
         .photoCard{
           border:1px solid var(--border);
@@ -1133,5 +713,5 @@ export default function LogDetailsPage() {
 }
 
 const baseStyles = `
-  .page{max-width:980px;margin:0 auto;padding:1rem;color:var(--text);overflow-x:hidden;}
+  .page{max-width:1080px;margin:0 auto;padding:1rem;color:var(--text);overflow-x:hidden;}
 `
