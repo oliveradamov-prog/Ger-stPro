@@ -5,11 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
-const COL_WORKERS_COUNT = 'workers_count'
-const COL_SITE_MANAGERS_COUNT = 'site_managers_count'
-const COL_WORKERS_NAMES = 'workers_names'
-const COL_SITE_MANAGERS_NAMES = 'site_managers_names'
-
 const PHOTOS_BUCKET = process.env.NEXT_PUBLIC_PHOTOS_BUCKET || 'DAILY-LOG-PHOTOS'
 const PHOTOS_TABLE = 'daily_log_photos'
 
@@ -29,10 +24,44 @@ type DailyLog = {
   log_date: string
   description: string | null
   work_description: string | null
-  [COL_WORKERS_COUNT]?: number | null
-  [COL_SITE_MANAGERS_COUNT]?: number | null
-  [COL_WORKERS_NAMES]?: string | string[] | null
-  [COL_SITE_MANAGERS_NAMES]?: string | string[] | null
+  remarks: string | null
+  external_company: string | null
+  workers_count?: number | null
+  site_managers_count?: number | null
+  workers_names?: string[] | null
+  site_managers_names?: string[] | null
+}
+
+type WorkerRow = {
+  id: string
+  log_id?: string
+  company: string
+  name: string
+  hours: string
+  time_range: string
+}
+
+type MeetingRow = {
+  id: string
+  log_id?: string
+  thema: string
+  termin: string
+}
+
+type EventRow = {
+  id: string
+  log_id?: string
+  text: string
+  erlediger: string
+  status: string
+  termin: string
+}
+
+function makeId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return Math.random().toString(36).slice(2)
 }
 
 function asString(v: any) {
@@ -74,6 +103,34 @@ function formatDateTime(dateStr?: string) {
   return new Date(dateStr).toLocaleString('de-DE')
 }
 
+function emptyWorkerRow(): WorkerRow {
+  return {
+    id: makeId(),
+    company: '',
+    name: '',
+    hours: '',
+    time_range: '',
+  }
+}
+
+function emptyMeetingRow(): MeetingRow {
+  return {
+    id: makeId(),
+    thema: '',
+    termin: '',
+  }
+}
+
+function emptyEventRow(): EventRow {
+  return {
+    id: makeId(),
+    text: '',
+    erlediger: '',
+    status: '',
+    termin: '',
+  }
+}
+
 export default function LogEditPage() {
   const params = useParams()
   const router = useRouter()
@@ -96,9 +153,14 @@ export default function LogEditPage() {
     log_date: '',
     description: '',
     work_description: '',
-    workers_names: '',
+    remarks: '',
+    external_company: '',
     site_managers_names: '',
   })
+
+  const [workers, setWorkers] = useState<WorkerRow[]>([emptyWorkerRow()])
+  const [meetings, setMeetings] = useState<MeetingRow[]>([emptyMeetingRow()])
+  const [events, setEvents] = useState<EventRow[]>([emptyEventRow()])
 
   const [photos, setPhotos] = useState<PhotoRow[]>([])
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
@@ -114,46 +176,101 @@ export default function LogEditPage() {
       try {
         if (!projectId || !logId) return
 
-        const { data: logData, error } = await supabase
-          .from('daily_logs')
-          .select(
-            [
-              'id, project_id, user_id, log_date, description, work_description',
-              COL_WORKERS_COUNT,
-              COL_SITE_MANAGERS_COUNT,
-              COL_WORKERS_NAMES,
-              COL_SITE_MANAGERS_NAMES,
-            ].join(', ')
-          )
-          .eq('id', logId)
-          .eq('project_id', projectId)
-          .single()
+        const [
+          logRes,
+          workersRes,
+          meetingsRes,
+          eventsRes,
+          photosRes,
+        ] = await Promise.all([
+          supabase
+            .from('daily_logs')
+            .select(
+              'id, project_id, user_id, log_date, description, work_description, remarks, external_company, workers_count, site_managers_count, workers_names, site_managers_names'
+            )
+            .eq('id', logId)
+            .eq('project_id', projectId)
+            .single(),
+          supabase
+            .from('daily_log_workers')
+            .select('id, log_id, company, name, hours, time_range')
+            .eq('log_id', logId)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from('daily_log_meetings')
+            .select('id, log_id, thema, termin')
+            .eq('log_id', logId)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from('daily_log_events')
+            .select('id, log_id, text, erlediger, status, termin')
+            .eq('log_id', logId)
+            .order('created_at', { ascending: true }),
+          supabase
+            .from(PHOTOS_TABLE)
+            .select('id, user_id, project_id, log_id, path, created_at')
+            .eq('project_id', projectId)
+            .eq('log_id', logId)
+            .order('created_at', { ascending: false }),
+        ])
 
-        if (error) throw error
+        if (logRes.error) throw logRes.error
+        if (workersRes.error) throw workersRes.error
+        if (meetingsRes.error) throw meetingsRes.error
+        if (eventsRes.error) throw eventsRes.error
+        if (photosRes.error) console.warn(photosRes.error.message)
 
-        const log = (Array.isArray(logData) ? logData[0] : logData) as DailyLog | null
-
-        if (!log) {
-          throw new Error('Log nicht gefunden')
-        }
-        const { data: photoRows, error: photoErr } = await supabase
-          .from(PHOTOS_TABLE)
-          .select('id, user_id, project_id, log_id, path, created_at')
-          .eq('project_id', projectId)
-          .eq('log_id', logId)
-          .order('created_at', { ascending: false })
-
-        if (photoErr) console.warn(photoErr.message)
+        const log = logRes.data as DailyLog | null
+        if (!log) throw new Error('Log nicht gefunden')
 
         if (!cancelled) {
           setForm({
             log_date: log.log_date || '',
             description: log.description ?? '',
             work_description: log.work_description ?? '',
-            workers_names: asString((log as any)?.[COL_WORKERS_NAMES]),
-            site_managers_names: asString((log as any)?.[COL_SITE_MANAGERS_NAMES]),
+            remarks: log.remarks ?? '',
+            external_company: log.external_company ?? '',
+            site_managers_names: asString(log.site_managers_names),
           })
-          setPhotos((photoRows as PhotoRow[]) ?? [])
+
+          setWorkers(
+            (workersRes.data as any[])?.length
+              ? (workersRes.data as any[]).map((row) => ({
+                  id: row.id,
+                  log_id: row.log_id,
+                  company: row.company ?? '',
+                  name: row.name ?? '',
+                  hours: row.hours == null ? '' : String(row.hours).replace('.', ','),
+                  time_range: row.time_range ?? '',
+                }))
+              : [emptyWorkerRow()]
+          )
+
+          setMeetings(
+            (meetingsRes.data as any[])?.length
+              ? (meetingsRes.data as any[]).map((row) => ({
+                  id: row.id,
+                  log_id: row.log_id,
+                  thema: row.thema ?? '',
+                  termin: row.termin ?? '',
+                }))
+              : [emptyMeetingRow()]
+          )
+
+          setEvents(
+            (eventsRes.data as any[])?.length
+              ? (eventsRes.data as any[]).map((row) => ({
+                  id: row.id,
+                  log_id: row.log_id,
+                  text: row.text ?? '',
+                  erlediger: row.erlediger ?? '',
+                  status: row.status ?? '',
+                  termin: row.termin ?? '',
+                }))
+              : [emptyEventRow()]
+          )
+
+          setPhotos((photosRes.data as PhotoRow[]) ?? [])
         }
       } catch (e: any) {
         if (!cancelled) setMsg(e?.message ?? 'Laden fehlgeschlagen')
@@ -201,6 +318,36 @@ export default function LogEditPage() {
     }
   }, [photos])
 
+  function updateWorker(id: string, patch: Partial<WorkerRow>) {
+    setWorkers((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    )
+  }
+
+  function updateMeeting(id: string, patch: Partial<MeetingRow>) {
+    setMeetings((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    )
+  }
+
+  function updateEvent(id: string, patch: Partial<EventRow>) {
+    setEvents((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    )
+  }
+
+  function removeWorker(id: string) {
+    setWorkers((prev) => (prev.length === 1 ? prev : prev.filter((row) => row.id !== id)))
+  }
+
+  function removeMeeting(id: string) {
+    setMeetings((prev) => (prev.length === 1 ? prev : prev.filter((row) => row.id !== id)))
+  }
+
+  function removeEvent(id: string) {
+    setEvents((prev) => (prev.length === 1 ? prev : prev.filter((row) => row.id !== id)))
+  }
+
   async function save() {
     setMsg('')
     setSaving(true)
@@ -208,6 +355,7 @@ export default function LogEditPage() {
     try {
       if (!projectId || !logId) throw new Error('projectId/logId fehlt')
       if (!form.log_date) throw new Error('Bitte Datum auswählen.')
+      if (!form.description.trim()) throw new Error('Bitte Titel eingeben.')
 
       const {
         data: { user },
@@ -215,31 +363,120 @@ export default function LogEditPage() {
 
       if (!user) throw new Error('Nicht eingeloggt.')
 
-      const workersArr = toTextArray(form.workers_names)
-      const managersArr = toTextArray(form.site_managers_names)
+      const cleanedWorkers = workers
+        .map((row) => ({
+          id: row.id,
+          company: row.company.trim() || null,
+          name: row.name.trim(),
+          hours: row.hours.trim(),
+          time_range: row.time_range.trim() || null,
+        }))
+        .filter((row) => row.name)
+
+      const workerNames = cleanedWorkers.map((row) => row.name)
+      const managerArr = toTextArray(form.site_managers_names)
+
+      const cleanedMeetings = meetings
+        .map((row) => ({
+          id: row.id,
+          thema: row.thema.trim() || null,
+          termin: row.termin.trim() || null,
+        }))
+        .filter((row) => row.thema || row.termin)
+
+      const cleanedEvents = events
+        .map((row) => ({
+          id: row.id,
+          text: row.text.trim() || null,
+          erlediger: row.erlediger.trim() || null,
+          status: row.status.trim() || null,
+          termin: row.termin.trim() || null,
+        }))
+        .filter((row) => row.text || row.erlediger || row.status || row.termin)
 
       const payload: any = {
         log_date: form.log_date,
-        description: form.description?.trim() || null,
-        work_description: form.work_description?.trim() || null,
-        [COL_WORKERS_NAMES]: workersArr,
-        [COL_SITE_MANAGERS_NAMES]: managersArr,
-        [COL_WORKERS_COUNT]: workersArr.length,
-        [COL_SITE_MANAGERS_COUNT]: managersArr.length,
+        description: form.description.trim(),
+        work_description: form.work_description.trim() || '',
+        remarks: form.remarks.trim() || null,
+        external_company: form.external_company.trim() || null,
+        workers_names: workerNames,
+        site_managers_names: managerArr,
+        workers_count: workerNames.length,
+        site_managers_count: managerArr.length,
       }
 
-      const { data, error } = await supabase
+      const { error: updateError } = await supabase
         .from('daily_logs')
         .update(payload)
         .eq('id', logId)
-        .select('id, workers_names, site_managers_names')
 
-      if (error) throw error
+      if (updateError) throw updateError
 
-      if (!data || data.length === 0) {
-        throw new Error('Es wurde kein Datensatz aktualisiert.')
+      const { error: deleteWorkersError } = await supabase
+        .from('daily_log_workers')
+        .delete()
+        .eq('log_id', logId)
+      if (deleteWorkersError) throw deleteWorkersError
+
+      if (cleanedWorkers.length > 0) {
+        const workerPayload = cleanedWorkers.map((row) => ({
+          log_id: logId,
+          company: row.company,
+          name: row.name,
+          hours: row.hours ? Number(row.hours.replace(',', '.')) : null,
+          time_range: row.time_range,
+        }))
+
+        const { error: workerInsertError } = await supabase
+          .from('daily_log_workers')
+          .insert(workerPayload)
+
+        if (workerInsertError) throw workerInsertError
       }
-      
+
+      const { error: deleteMeetingsError } = await supabase
+        .from('daily_log_meetings')
+        .delete()
+        .eq('log_id', logId)
+      if (deleteMeetingsError) throw deleteMeetingsError
+
+      if (cleanedMeetings.length > 0) {
+        const meetingPayload = cleanedMeetings.map((row) => ({
+          log_id: logId,
+          thema: row.thema,
+          termin: row.termin,
+        }))
+
+        const { error: meetingInsertError } = await supabase
+          .from('daily_log_meetings')
+          .insert(meetingPayload)
+
+        if (meetingInsertError) throw meetingInsertError
+      }
+
+      const { error: deleteEventsError } = await supabase
+        .from('daily_log_events')
+        .delete()
+        .eq('log_id', logId)
+      if (deleteEventsError) throw deleteEventsError
+
+      if (cleanedEvents.length > 0) {
+        const eventPayload = cleanedEvents.map((row) => ({
+          log_id: logId,
+          text: row.text,
+          erlediger: row.erlediger,
+          status: row.status,
+          termin: row.termin,
+        }))
+
+        const { error: eventInsertError } = await supabase
+          .from('daily_log_events')
+          .insert(eventPayload)
+
+        if (eventInsertError) throw eventInsertError
+      }
+
       setMsg('')
       router.push(`/projects/${projectId}/logs/${logId}`)
       router.refresh()
@@ -249,6 +486,7 @@ export default function LogEditPage() {
       setSaving(false)
     }
   }
+
   async function compressImage(file: File, maxBytes = 1024 * 1024): Promise<File> {
     if (!file.type.startsWith('image/')) return file
 
@@ -467,48 +705,213 @@ export default function LogEditPage() {
           </div>
 
           <div className="card">
-            <div className="label">Teamnamen</div>
-            <div className="muted" style={{ marginBottom: 10 }}>
-              Mehrere Namen mit Komma oder neuer Zeile trennen. Beispiel: <b>Hans, Peter</b>
-            </div>
+            <div className="label">Fremdfirma / Bedolgozó cég</div>
+            <input
+              className="input"
+              value={form.external_company}
+              onChange={(e) => setForm((p) => ({ ...p, external_company: e.target.value }))}
+              placeholder="z. B. Intering"
+            />
+          </div>
 
-            <div className="two">
-              <div>
-                <div className="miniLabel">Arbeiternamen</div>
-                <textarea
-                  className="textarea"
-                  value={form.workers_names}
-                  onChange={(e) => setForm((p) => ({ ...p, workers_names: e.target.value }))}
-                  placeholder="Hans, Peter"
-                />
-                <div className="hint">
-                  Anzahl: <b>{toTextArray(form.workers_names).length}</b>
-                </div>
-              </div>
-
-              <div>
-                <div className="miniLabel">Bauleiternamen</div>
-                <textarea
-                  className="textarea"
-                  value={form.site_managers_names}
-                  onChange={(e) => setForm((p) => ({ ...p, site_managers_names: e.target.value }))}
-                  placeholder="Michael, Stefan"
-                />
-                <div className="hint">
-                  Anzahl: <b>{toTextArray(form.site_managers_names).length}</b>
-                </div>
-              </div>
+          <div className="card">
+            <div className="label">Bauleiternamen</div>
+            <textarea
+              className="textarea"
+              value={form.site_managers_names}
+              onChange={(e) => setForm((p) => ({ ...p, site_managers_names: e.target.value }))}
+              placeholder="Michael, Stefan…"
+            />
+            <div className="hint">
+              Anzahl: <b>{toTextArray(form.site_managers_names).length}</b>
             </div>
           </div>
 
           <div className="card">
-            <div className="label">Arbeitsbeschreibung</div>
+            <div className="sectionTop">
+              <div className="label" style={{ marginBottom: 0 }}>
+                Mitarbeiter / Firmen / Stunden / Zeit
+              </div>
+              <button
+                type="button"
+                className="miniBtn"
+                onClick={() => setWorkers((prev) => [...prev, emptyWorkerRow()])}
+              >
+                + Zeile
+              </button>
+            </div>
+
+            <div className="rows">
+              {workers.map((row, idx) => (
+                <div key={row.id} className="subCard">
+                  <div className="rowTop">
+                    <div className="miniTitle">Mitarbeiter #{idx + 1}</div>
+                    <button
+                      type="button"
+                      className="miniDanger"
+                      onClick={() => removeWorker(row.id)}
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+
+                  <div className="four">
+                    <input
+                      className="input"
+                      value={row.company}
+                      onChange={(e) => updateWorker(row.id, { company: e.target.value })}
+                      placeholder="Firma"
+                    />
+                    <input
+                      className="input"
+                      value={row.name}
+                      onChange={(e) => updateWorker(row.id, { name: e.target.value })}
+                      placeholder="Mitarbeiter"
+                    />
+                    <input
+                      className="input"
+                      value={row.hours}
+                      onChange={(e) => updateWorker(row.id, { hours: e.target.value })}
+                      placeholder="Stunden"
+                    />
+                    <input
+                      className="input"
+                      value={row.time_range}
+                      onChange={(e) => updateWorker(row.id, { time_range: e.target.value })}
+                      placeholder="Zeit (z. B. 7.00 – 16.30)"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="label">Ausgeführte Arbeiten</div>
             <textarea
               className="textarea workArea"
               value={form.work_description}
               onChange={(e) => setForm((p) => ({ ...p, work_description: e.target.value }))}
               placeholder="Was wurde heute gemacht…"
             />
+          </div>
+
+          <div className="card">
+            <div className="label">Bemerkungen</div>
+            <textarea
+              className="textarea"
+              value={form.remarks}
+              onChange={(e) => setForm((p) => ({ ...p, remarks: e.target.value }))}
+              placeholder="Zusätzliche Hinweise, Sicherheit, Besonderheiten…"
+            />
+          </div>
+
+          <div className="card">
+            <div className="sectionTop">
+              <div className="label" style={{ marginBottom: 0 }}>
+                Besprechungen
+              </div>
+              <button
+                type="button"
+                className="miniBtn"
+                onClick={() => setMeetings((prev) => [...prev, emptyMeetingRow()])}
+              >
+                + Zeile
+              </button>
+            </div>
+
+            <div className="rows">
+              {meetings.map((row, idx) => (
+                <div key={row.id} className="subCard">
+                  <div className="rowTop">
+                    <div className="miniTitle">Besprechung #{idx + 1}</div>
+                    <button
+                      type="button"
+                      className="miniDanger"
+                      onClick={() => removeMeeting(row.id)}
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+
+                  <div className="two">
+                    <input
+                      className="input"
+                      value={row.thema}
+                      onChange={(e) => updateMeeting(row.id, { thema: e.target.value })}
+                      placeholder="Thema"
+                    />
+                    <input
+                      className="input"
+                      value={row.termin}
+                      onChange={(e) => updateMeeting(row.id, { termin: e.target.value })}
+                      placeholder="Termin"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="sectionTop">
+              <div className="label" style={{ marginBottom: 0 }}>
+                Vorkommnisse
+              </div>
+              <button
+                type="button"
+                className="miniBtn"
+                onClick={() => setEvents((prev) => [...prev, emptyEventRow()])}
+              >
+                + Zeile
+              </button>
+            </div>
+
+            <div className="rows">
+              {events.map((row, idx) => (
+                <div key={row.id} className="subCard">
+                  <div className="rowTop">
+                    <div className="miniTitle">Vorkommnis #{idx + 1}</div>
+                    <button
+                      type="button"
+                      className="miniDanger"
+                      onClick={() => removeEvent(row.id)}
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+
+                  <div className="gridInner">
+                    <textarea
+                      className="textarea"
+                      value={row.text}
+                      onChange={(e) => updateEvent(row.id, { text: e.target.value })}
+                      placeholder="Vorkommnis / Beschreibung"
+                    />
+                    <div className="three">
+                      <input
+                        className="input"
+                        value={row.erlediger}
+                        onChange={(e) => updateEvent(row.id, { erlediger: e.target.value })}
+                        placeholder="Erlediger"
+                      />
+                      <input
+                        className="input"
+                        value={row.status}
+                        onChange={(e) => updateEvent(row.id, { status: e.target.value })}
+                        placeholder="Status"
+                      />
+                      <input
+                        className="input"
+                        value={row.termin}
+                        onChange={(e) => updateEvent(row.id, { termin: e.target.value })}
+                        placeholder="Termin"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="card">
@@ -603,12 +1006,22 @@ export default function LogEditPage() {
         .btnPrimary:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none;}
 
         .grid{display:grid;gap:14px;}
+        .gridInner{display:grid;gap:12px;}
         .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-        @media(max-width:720px){.two{grid-template-columns:1fr;}.btn,.btnPrimary{flex:1;}}
+        .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+        .four{display:grid;grid-template-columns:1.2fr 1.2fr .7fr 1fr;gap:12px;}
+        @media(max-width:900px){.four{grid-template-columns:1fr 1fr;}}
+        @media(max-width:720px){.two,.three,.four{grid-template-columns:1fr;}.btn,.btnPrimary{flex:1;}}
 
         .card{border:1px solid var(--border);background:var(--chip);border-radius:18px;padding:16px;overflow:hidden;}
+        .subCard{border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:12px;background:rgba(255,255,255,.02);}
+        .rows{display:grid;gap:12px;margin-top:12px;}
+        .sectionTop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+        .rowTop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+
         .label{color:var(--muted);font-weight:950;font-size:14px;margin-bottom:8px;}
         .miniLabel{color:var(--muted);font-weight:950;font-size:13px;margin-bottom:6px;}
+        .miniTitle{color:var(--text);font-weight:950;font-size:14px;}
         .hint{margin-top:8px;color:var(--muted);font-weight:900;}
 
         .input,.textarea{
@@ -632,6 +1045,21 @@ export default function LogEditPage() {
           min-height:140px;
           max-height:260px;
           overflow:auto;
+        }
+
+        .miniBtn,.miniDanger{
+          min-height:38px;
+          padding:8px 12px;
+          border-radius:12px;
+          cursor:pointer;
+          font-weight:900;
+          border:1px solid var(--border);
+          background:var(--chip);
+          color:var(--text);
+        }
+
+        .miniDanger{
+          color:#ffb4b4;
         }
 
         .file{width:100%;max-width:100%;}
