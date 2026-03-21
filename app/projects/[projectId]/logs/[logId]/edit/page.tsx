@@ -39,6 +39,7 @@ type WorkerRow = {
   name: string
   hours: string
   time_range: string
+  sort_order?: number | null
 }
 
 type MeetingRow = {
@@ -103,13 +104,14 @@ function formatDateTime(dateStr?: string) {
   return new Date(dateStr).toLocaleString('de-DE')
 }
 
-function emptyWorkerRow(): WorkerRow {
+function emptyWorkerRow(sortOrder = 0): WorkerRow {
   return {
     id: makeId(),
     company: '',
     name: '',
     hours: '',
     time_range: '',
+    sort_order: sortOrder,
   }
 }
 
@@ -129,6 +131,13 @@ function emptyEventRow(): EventRow {
     status: '',
     termin: '',
   }
+}
+
+function moveItem<T>(list: T[], from: number, to: number) {
+  const copy = [...list]
+  const [item] = copy.splice(from, 1)
+  copy.splice(to, 0, item)
+  return copy
 }
 
 export default function LogEditPage() {
@@ -158,7 +167,7 @@ export default function LogEditPage() {
     site_managers_names: '',
   })
 
-  const [workers, setWorkers] = useState<WorkerRow[]>([emptyWorkerRow()])
+  const [workers, setWorkers] = useState<WorkerRow[]>([emptyWorkerRow(1)])
   const [meetings, setMeetings] = useState<MeetingRow[]>([emptyMeetingRow()])
   const [events, setEvents] = useState<EventRow[]>([emptyEventRow()])
 
@@ -193,8 +202,9 @@ export default function LogEditPage() {
             .single(),
           supabase
             .from('daily_log_workers')
-            .select('id, log_id, company, name, hours, time_range')
+            .select('id, log_id, company, name, hours, time_range, sort_order')
             .eq('log_id', logId)
+            .order('sort_order', { ascending: true, nullsFirst: false })
             .order('created_at', { ascending: true }),
           supabase
             .from('daily_log_meetings')
@@ -235,15 +245,16 @@ export default function LogEditPage() {
 
           setWorkers(
             (workersRes.data as any[])?.length
-              ? (workersRes.data as any[]).map((row) => ({
+              ? (workersRes.data as any[]).map((row, index) => ({
                   id: row.id,
                   log_id: row.log_id,
                   company: row.company ?? '',
                   name: row.name ?? '',
                   hours: row.hours == null ? '' : String(row.hours).replace('.', ','),
                   time_range: row.time_range ?? '',
+                  sort_order: row.sort_order ?? index + 1,
                 }))
-              : [emptyWorkerRow()]
+              : [emptyWorkerRow(1)]
           )
 
           setMeetings(
@@ -324,6 +335,18 @@ export default function LogEditPage() {
     )
   }
 
+  function moveWorkerUp(index: number) {
+    if (index === 0) return
+    setWorkers((prev) => moveItem(prev, index, index - 1))
+  }
+
+  function moveWorkerDown(index: number) {
+    setWorkers((prev) => {
+      if (index >= prev.length - 1) return prev
+      return moveItem(prev, index, index + 1)
+    })
+  }
+
   function updateMeeting(id: string, patch: Partial<MeetingRow>) {
     setMeetings((prev) =>
       prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
@@ -364,12 +387,13 @@ export default function LogEditPage() {
       if (!user) throw new Error('Nicht eingeloggt.')
 
       const cleanedWorkers = workers
-        .map((row) => ({
+        .map((row, index) => ({
           id: row.id,
           company: row.company.trim() || null,
           name: row.name.trim(),
           hours: row.hours.trim(),
           time_range: row.time_range.trim() || null,
+          sort_order: index + 1,
         }))
         .filter((row) => row.name)
 
@@ -426,6 +450,7 @@ export default function LogEditPage() {
           name: row.name,
           hours: row.hours ? Number(row.hours.replace(',', '.')) : null,
           time_range: row.time_range,
+          sort_order: row.sort_order,
         }))
 
         const { error: workerInsertError } = await supabase
@@ -735,7 +760,9 @@ export default function LogEditPage() {
               <button
                 type="button"
                 className="miniBtn"
-                onClick={() => setWorkers((prev) => [...prev, emptyWorkerRow()])}
+                onClick={() =>
+                  setWorkers((prev) => [...prev, emptyWorkerRow(prev.length + 1)])
+                }
               >
                 + Zeile
               </button>
@@ -746,13 +773,34 @@ export default function LogEditPage() {
                 <div key={row.id} className="subCard">
                   <div className="rowTop">
                     <div className="miniTitle">Mitarbeiter #{idx + 1}</div>
-                    <button
-                      type="button"
-                      className="miniDanger"
-                      onClick={() => removeWorker(row.id)}
-                    >
-                      Entfernen
-                    </button>
+
+                    <div className="workerActions">
+                      <button
+                        type="button"
+                        className="miniMove"
+                        onClick={() => moveWorkerUp(idx)}
+                        disabled={idx === 0}
+                        title="Nach oben"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="miniMove"
+                        onClick={() => moveWorkerDown(idx)}
+                        disabled={idx === workers.length - 1}
+                        title="Nach unten"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        className="miniDanger"
+                        onClick={() => removeWorker(row.id)}
+                      >
+                        Entfernen
+                      </button>
+                    </div>
                   </div>
 
                   <div className="four">
@@ -1018,6 +1066,7 @@ export default function LogEditPage() {
         .rows{display:grid;gap:12px;margin-top:12px;}
         .sectionTop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
         .rowTop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+        .workerActions{display:flex;gap:8px;flex-wrap:wrap;}
 
         .label{color:var(--muted);font-weight:950;font-size:14px;margin-bottom:8px;}
         .miniLabel{color:var(--muted);font-weight:950;font-size:13px;margin-bottom:6px;}
@@ -1047,7 +1096,7 @@ export default function LogEditPage() {
           overflow:auto;
         }
 
-        .miniBtn,.miniDanger{
+        .miniBtn,.miniDanger,.miniMove{
           min-height:38px;
           padding:8px 12px;
           border-radius:12px;
@@ -1060,6 +1109,11 @@ export default function LogEditPage() {
 
         .miniDanger{
           color:#ffb4b4;
+        }
+
+        .miniMove:disabled{
+          opacity:.45;
+          cursor:not-allowed;
         }
 
         .file{width:100%;max-width:100%;}
