@@ -168,6 +168,7 @@ export default function LogEditPage() {
   })
 
   const [workers, setWorkers] = useState<WorkerRow[]>([emptyWorkerRow(1)])
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [meetings, setMeetings] = useState<MeetingRow[]>([emptyMeetingRow()])
   const [events, setEvents] = useState<EventRow[]>([emptyEventRow()])
 
