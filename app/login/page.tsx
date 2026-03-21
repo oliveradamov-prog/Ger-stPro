@@ -5,11 +5,18 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
 
+const PROFILE_LOGO_BUCKET = 'project-logos'
+
 export default function LoginPage() {
   const router = useRouter()
 
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
+
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -33,68 +40,203 @@ export default function LoginPage() {
     router.refresh()
   }
 
+  async function uploadProfileLogo(userId: string, file: File) {
+    const ext = file.name.split('.').pop() || 'png'
+    const safeExt = ext.toLowerCase()
+    const path = `${userId}/profile-logo-${Date.now()}.${safeExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from(PROFILE_LOGO_BUCKET)
+      .upload(path, file, {
+        upsert: true,
+      })
+
+    if (uploadError) throw uploadError
+
+    const { data } = supabase.storage
+      .from(PROFILE_LOGO_BUCKET)
+      .getPublicUrl(path)
+
+    return data.publicUrl
+  }
+
   async function signUp() {
     setMsg('')
     setBusy(true)
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+    try {
+      const trimmedName = fullName.trim()
+      const trimmedEmail = email.trim()
 
-    if (error) {
-      setMsg(error.message)
-    } else {
+      if (!trimmedName) {
+        throw new Error('Bitte deinen Namen eingeben.')
+      }
+
+      if (!trimmedEmail) {
+        throw new Error('Bitte deine Email eingeben.')
+      }
+
+      if (!password || password.length < 6) {
+        throw new Error('Das Passwort muss mindestens 6 Zeichen haben.')
+      }
+
+      const { data: signUpData, error } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+      })
+
+      if (error) throw error
+
+      const user = signUpData.user
+      if (!user) {
+        throw new Error('Account wurde nicht erstellt.')
+      }
+
+      let logoUrl: string | null = null
+
+      if (logoFile) {
+        logoUrl = await uploadProfileLogo(user.id, logoFile)
+      }
+
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: user.id,
+        full_name: trimmedName,
+        logo_url: logoUrl,
+      })
+
+      if (profileError) throw profileError
+
       setMsg('Account erstellt. Jetzt bitte anmelden.')
+      setMode('login')
+      setPassword('')
+    } catch (e: any) {
+      setMsg(e?.message ?? 'Registrierung fehlgeschlagen.')
+    } finally {
+      setBusy(false)
     }
-
-    setBusy(false)
   }
 
   return (
     <main className="loginPage">
       <div className="loginCard">
         <div className="badge">GerüstPro</div>
-        <h1>Login</h1>
-        <p className="subtext">Melde dich an, um Projekte und Tagesberichte zu verwalten.</p>
 
-        <form onSubmit={signIn} className="form">
-          <div className="field">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@example.com"
-              autoComplete="email"
-              inputMode="email"
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="password">Passwort</label>
-            <input
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              placeholder="********"
-              autoComplete="current-password"
-            />
-          </div>
-
-          <button className="primaryBtn" type="submit" disabled={busy}>
-            {busy ? 'Bitte warten…' : 'Sign In'}
+        <div className="modeSwitch">
+          <button
+            type="button"
+            className={mode === 'login' ? 'modeBtn active' : 'modeBtn'}
+            onClick={() => {
+              setMsg('')
+              setMode('login')
+            }}
+          >
+            Login
           </button>
-        </form>
-        
-        <Link href="/forgot-password" className="text-sm underline">
+          <button
+            type="button"
+            className={mode === 'signup' ? 'modeBtn active' : 'modeBtn'}
+            onClick={() => {
+              setMsg('')
+              setMode('signup')
+            }}
+          >
+            Registrieren
+          </button>
+        </div>
+
+        <h1>{mode === 'login' ? 'Login' : 'Account erstellen'}</h1>
+        <p className="subtext">
+          {mode === 'login'
+            ? 'Melde dich an, um Projekte und Tagesberichte zu verwalten.'
+            : 'Erstelle einen Account mit Namen und optionalem Firmenlogo.'}
+        </p>
+
+        {mode === 'login' ? (
+          <form onSubmit={signIn} className="form">
+            <div className="field">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@example.com"
+                autoComplete="email"
+                inputMode="email"
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="password">Passwort</label>
+              <input
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                placeholder="********"
+                autoComplete="current-password"
+              />
+            </div>
+
+            <button className="primaryBtn" type="submit" disabled={busy}>
+              {busy ? 'Bitte warten…' : 'Sign In'}
+            </button>
+          </form>
+        ) : (
+          <div className="form">
+            <div className="field">
+              <label htmlFor="fullName">Dein Name</label>
+              <input
+                id="fullName"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="z. B. Oliver Adamov"
+                autoComplete="name"
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="signupEmail">Email</label>
+              <input
+                id="signupEmail"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@example.com"
+                autoComplete="email"
+                inputMode="email"
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="signupPassword">Passwort</label>
+              <input
+                id="signupPassword"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                placeholder="Mindestens 6 Zeichen"
+                autoComplete="new-password"
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="logo">Firmenlogo (optional)</label>
+              <input
+                id="logo"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+              />
+            </div>
+
+            <button className="primaryBtn" onClick={signUp} disabled={busy} type="button">
+              {busy ? 'Bitte warten…' : 'Create account'}
+            </button>
+          </div>
+        )}
+
+        <Link href="/forgot-password" className="forgotLink">
           Passwort vergessen?
         </Link>
-        
-        <button className="secondaryBtn" onClick={signUp} disabled={busy} type="button">
-          Create account
-        </button>
 
         {msg ? <div className="message">{msg}</div> : null}
       </div>
@@ -134,6 +276,27 @@ export default function LoginPage() {
           font-weight: 900;
           font-size: 13px;
           margin-bottom: 12px;
+        }
+
+        .modeSwitch {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+
+        .modeBtn {
+          flex: 1;
+          min-height: 42px;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--text);
+          cursor: pointer;
+          font-weight: 900;
+        }
+
+        .modeBtn.active {
+          background: rgba(255, 255, 255, 0.12);
         }
 
         h1 {
@@ -189,8 +352,7 @@ export default function LoginPage() {
           background: rgba(255, 255, 255, 0.09);
         }
 
-        .primaryBtn,
-        .secondaryBtn {
+        .primaryBtn {
           width: 100%;
           min-height: 50px;
           border-radius: 14px;
@@ -198,33 +360,30 @@ export default function LoginPage() {
           cursor: pointer;
           font-weight: 950;
           font-size: 16px;
-          transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
-        }
-
-        .primaryBtn {
           margin-top: 6px;
           background: rgba(255, 255, 255, 0.12);
           color: var(--text);
+          transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
         }
 
-        .secondaryBtn {
-          margin-top: 12px;
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--text);
-        }
-
-        .primaryBtn:hover,
-        .secondaryBtn:hover {
+        .primaryBtn:hover {
           transform: translateY(-1px);
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
         }
 
-        .primaryBtn:disabled,
-        .secondaryBtn:disabled {
+        .primaryBtn:disabled {
           opacity: 0.65;
           cursor: not-allowed;
           transform: none;
           box-shadow: none;
+        }
+
+        .forgotLink {
+          display: inline-block;
+          margin-top: 14px;
+          color: var(--text);
+          text-decoration: underline;
+          font-weight: 700;
         }
 
         .message {
