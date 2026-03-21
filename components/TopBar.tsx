@@ -1,15 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
+type Profile = {
+  full_name: string | null
+  logo_url: string | null
+}
+
 export default function TopBar() {
   const pathname = usePathname()
-  const router = useRouter()
+
   const [menuOpen, setMenuOpen] = useState(false)
-  const [email, setEmail] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [loadingUser, setLoadingUser] = useState(true)
 
   const shouldHide =
@@ -21,28 +26,58 @@ export default function TopBar() {
   useEffect(() => {
     let active = true
 
-    async function loadSession() {
+    async function loadSessionAndProfile() {
       try {
         const {
           data: { user },
         } = await supabase.auth.getUser()
 
         if (!active) return
-        setEmail(user?.email || '')
+
+        if (!user) {
+          setDisplayName('')
+          return
+        }
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, logo_url')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        const profileData = profile as Profile | null
+        const name = profileData?.full_name?.trim() || user.email || ''
+
+        setDisplayName(name)
       } catch {
         if (!active) return
-        setEmail('')
+        setDisplayName('')
       } finally {
         if (active) setLoadingUser(false)
       }
     }
 
-    loadSession()
+    loadSessionAndProfile()
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setEmail(session?.user?.email || '')
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
+        setDisplayName('')
+        setLoadingUser(false)
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, logo_url')
+        .eq('id', session.user.id)
+        .maybeSingle()
+
+      const profileData = profile as Profile | null
+      const name = profileData?.full_name?.trim() || session.user.email || ''
+
+      setDisplayName(name)
       setLoadingUser(false)
     })
 
@@ -79,9 +114,9 @@ export default function TopBar() {
         </div>
 
         <div className="right">
-          {!loadingUser && email ? (
+          {!loadingUser && displayName ? (
             <>
-              <span className="email">{email}</span>
+              <span className="userName">{displayName}</span>
               <button className="loginLink" type="button" onClick={logout}>
                 Abmelden
               </button>
@@ -112,7 +147,7 @@ export default function TopBar() {
             Neues Projekt
           </Link>
 
-          {!loadingUser && email ? (
+          {!loadingUser && displayName ? (
             <button
               type="button"
               className="mobileMenuItem"
@@ -176,7 +211,7 @@ export default function TopBar() {
           gap: 10px;
         }
 
-        .email {
+        .userName {
           color: var(--muted);
           font-weight: 800;
           font-size: 13px;
@@ -234,7 +269,7 @@ export default function TopBar() {
         }
 
         @media (max-width: 720px) {
-          .email {
+          .userName {
             display: none;
           }
         }
