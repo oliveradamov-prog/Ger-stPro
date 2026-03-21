@@ -32,6 +32,11 @@ type Project = {
   logo_url?: string | null
 }
 
+type Profile = {
+  full_name: string | null
+  logo_url: string | null
+}
+
 type PhotoRow = {
   log_id: string
   path: string
@@ -105,6 +110,7 @@ export default function LogDetailsPage() {
   }, [params])
 
   const [project, setProject] = useState<Project | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [log, setLog] = useState<DailyLog | null>(null)
   const [workers, setWorkers] = useState<WorkerRow[]>([])
   const [meetings, setMeetings] = useState<MeetingRow[]>([])
@@ -149,11 +155,17 @@ export default function LogDetailsPage() {
         if (logError) throw logError
 
         const [
+          profileRes,
           workersRes,
           meetingsRes,
           eventsRes,
           photosRes,
         ] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('full_name, logo_url')
+            .eq('id', logData.user_id)
+            .maybeSingle(),
           supabase
             .from('daily_log_workers')
             .select('id, log_id, company, name, hours, time_range')
@@ -183,6 +195,7 @@ export default function LogDetailsPage() {
 
         if (!cancelled) {
           setProject(projectData as Project)
+          setProfile((profileRes.data as Profile | null) ?? null)
           setLog(logData as DailyLog)
           setWorkers((workersRes.data as WorkerRow[]) ?? [])
           setMeetings((meetingsRes.data as MeetingRow[]) ?? [])
@@ -252,6 +265,7 @@ export default function LogDetailsPage() {
   const logTitle = log?.description?.trim() ? log.description : 'Tagesbericht'
   const projectTitle = project?.name ?? 'Projekt'
   const photoCount = photos.length
+  const effectiveLogoUrl = project?.logo_url || profile?.logo_url || ''
 
   return (
     <div className="page">
@@ -318,9 +332,9 @@ export default function LogDetailsPage() {
             </div>
 
             <div className="headerRight">
-              {project?.logo_url ? (
+              {effectiveLogoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={project.logo_url} alt="Firmenlogo" className="logo" />
+                <img src={effectiveLogoUrl} alt="Firmenlogo" className="logo" />
               ) : (
                 <div className="logoPlaceholder">Logo</div>
               )}
