@@ -567,7 +567,7 @@ export default function NewLogForm() {
                       onChange={(e) => updateEvent(row.id, { termin: e.target.value })}
                       placeholder="Termin"
                     />
-                  />
+                  </div>
                 </div>
               </div>
             ))}
@@ -580,11 +580,11 @@ export default function NewLogForm() {
             Fotos können nach dem Erstellen des Tagesberichts im Bereich „Bearbeiten“ hochgeladen werden.
           </div>
         </div>
-      </div>
+        </div>
 
-      <style jsx>{baseStyles}</style>
+        <style jsx>{baseStyles}</style>
 
-      <style jsx>{`
+        <style jsx>{`
         .topRow{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
         .backLink{color:var(--muted);text-decoration:none;font-weight:950;}
         .backLink:hover{color:var(--text);}
@@ -658,10 +658,10 @@ export default function NewLogForm() {
         .miniDanger{
           color:#ffb4b4;
         }
-      `}</style>
-    </div>
-  )
-}
+        `}</style>
+        </div>
+        )
+        }
 
 const baseStyles = `
   .page{max-width:980px;margin:0 auto;padding:1rem;color:var(--text);overflow-x:hidden;}
