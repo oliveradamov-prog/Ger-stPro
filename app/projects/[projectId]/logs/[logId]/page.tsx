@@ -322,7 +322,7 @@ export default function LogDetailsPage() {
                   <span>{project?.client || '—'}</span>
                 </div>
                 <div className="metaLine">
-                  <span className="metaLabel">Fremdfirma / Bedolgozó cég:</span>{' '}
+                  <span className="metaLabel">Firma:</span>{' '}
                   <span>{log.external_company?.trim() ? log.external_company : '—'}</span>
                 </div>
                 <div className="metaLine">

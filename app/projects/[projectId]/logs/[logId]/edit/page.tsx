@@ -732,7 +732,7 @@ export default function LogEditPage() {
           </div>
 
           <div className="card">
-            <div className="label">Fremdfirma / Bedolgozó cég</div>
+            <div className="label">Firma</div>
             <input
               className="input"
               value={form.external_company}
