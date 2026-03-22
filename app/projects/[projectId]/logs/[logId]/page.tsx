@@ -415,102 +415,10 @@ export default function LogDetailsPage() {
         )
       }
 
-      const fileName = `${safeFileName(projectTitle)}_${safeFileName(logTitle)}.pdf`;
-      pdf.save(fileName);
-      } catch (e: any) {
-      setMsg(e?.message ?? 'PDF-Erstellung fehlgeschlagen.');
-      } finally {
-      setPdfBusy(false);
-      }
-      }
-
-      const addTextBlock = (label: string, value: string) => {
-        pdf.setFont('helvetica', 'bold')
-        pdf.setFontSize(11)
-        pdf.setTextColor(70, 70, 70)
-        pdf.text(label, margin, y)
-
-        y += 14
-
-        pdf.setFont('helvetica', 'normal')
-        pdf.setFontSize(12)
-        pdf.setTextColor(20, 20, 20)
-
-        const lines = pdf.splitTextToSize(value || '—', contentWidth)
-        pdf.text(lines, margin, y)
-
-        y += lines.length * 16 + 10
-      }
-
-      const addTable = (headers: string[], rows: string[][]) => {
-        const colWidth = contentWidth / headers.length
-        const rowHeight = 24
-
-        ensureSpace(40)
-
-        pdf.setFillColor(245, 245, 245)
-        pdf.rect(margin, y, contentWidth, rowHeight, 'F')
-
-        pdf.setFont('helvetica', 'bold')
-        pdf.setFontSize(10)
-
-        headers.forEach((h, i) => {
-          pdf.text(h, margin + i * colWidth + 6, y + 16)
-        })
-
-        y += rowHeight
-
-        pdf.setFont('helvetica', 'normal')
-
-        rows.forEach((row) => {
-          ensureSpace(rowHeight)
-
-          row.forEach((cell, i) => {
-            pdf.text(cell || '—', margin + i * colWidth + 6, y + 16)
-          })
-
-          y += rowHeight
-        })
-
-        y += 10
-      }
-
-      pdf.setFont('helvetica', 'bold')
-      pdf.setFontSize(22)
-      pdf.text(logTitle, margin, y)
-      y += 26
-
-      pdf.setFontSize(11)
-      pdf.setTextColor(90, 90, 90)
-      pdf.text(`${formatDateLong(log?.log_date || '')} • ${projectTitle}`, margin, y)
-      y += 20
-
-      addTextBlock('Standort', project?.location || '—')
-      addTextBlock('Client', project?.client || '—')
-      addTextBlock('Firma', log?.external_company || '—')
-      addTextBlock('Bauleiter', asText(log?.site_managers_names) || '—')
-
-      pdf.setFont('helvetica', 'bold')
-      pdf.setFontSize(14)
-      pdf.text('Mitarbeiter', margin, y)
-      y += 14
-
-      addTable(
-        ['Firma', 'Mitarbeiter', 'Stunden', 'Zeit'],
-        workers.map((w) => [
-          w.company || '—',
-          w.name || '—',
-          formatHours(w.hours),
-          w.time_range || '—',
-        ])
-      )
-
-      addTextBlock('Ausgeführte Arbeiten', log?.work_description || '—')
-      addTextBlock('Bemerkungen', log?.remarks || '—')
-
-      pdf.save(`${safeFileName(projectTitle)}_${safeFileName(logTitle)}.pdf`)
+      const fileName = `${safeFileName(projectName)}_${safeFileName(title)}.pdf`
+      pdf.save(fileName)
     } catch (e: any) {
-      setMsg('PDF Fehler')
+      setMsg(e?.message ?? 'PDF-Erstellung fehlgeschlagen.')
     } finally {
       setPdfBusy(false)
     }
