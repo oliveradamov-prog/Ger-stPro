@@ -294,7 +294,7 @@ export default function LogDetailsPage() {
         pdf.setFont('helvetica', 'bold')
         pdf.setFontSize(11)
         pdf.setTextColor(70, 70, 70)
-        pdf.text(label, margin, y)
+        pdf.text(`${label}:`, margin, y)
 
         y += 14
 
@@ -351,6 +351,13 @@ export default function LogDetailsPage() {
 
       const title = log?.description?.trim() ? log.description : 'Tagesbericht'
       const projectName = project?.name ?? 'Projekt'
+
+      if (effectiveLogoUrl) {
+        try {
+          const logoDataUrl = await imageUrlToDataUrl(effectiveLogoUrl)
+          pdf.addImage(logoDataUrl, 'PNG', pageWidth - margin - 90, y - 8, 72, 48)
+        } catch {}
+      }
 
       pdf.setFont('helvetica', 'bold')
       pdf.setFontSize(22)
@@ -415,8 +422,70 @@ export default function LogDetailsPage() {
         )
       }
 
+      addSectionTitle('Fotos')
+
+      if (photos.length === 0) {
+        addTextBlock('Fotos', 'Keine Fotos vorhanden.')
+      } else {
+        const photoWidth = (contentWidth - 12) / 2
+        const photoHeight = 150
+
+        for (let i = 0; i < photos.length; i++) {
+          const p = photos[i]
+          const url = photoUrls[p.path]
+          if (!url) continue
+
+          if (i % 2 === 0) {
+            ensureSpace(photoHeight + 40)
+          }
+
+          const x = i % 2 === 0 ? margin : margin + photoWidth + 12
+          const currentY = y
+
+          try {
+            const photoDataUrl = await imageUrlToDataUrl(url)
+            pdf.addImage(photoDataUrl, 'JPEG', x, currentY, photoWidth, photoHeight)
+          } catch {
+            continue
+          }
+
+          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(9)
+          pdf.setTextColor(90, 90, 90)
+          pdf.text(
+            `Baustelle: ${project?.location || '—'} | Zeit: ${formatDateTime(p.created_at) || '—'}`,
+            x,
+            currentY + photoHeight + 12,
+            { maxWidth: photoWidth } as any
+          )
+
+          if (i % 2 === 1) {
+            y += photoHeight + 28
+          }
+        }
+
+        if (photos.length % 2 === 1) {
+          y += photoHeight + 28
+        }
+      }
+
       const fileName = `${safeFileName(projectName)}_${safeFileName(title)}.pdf`
       pdf.save(fileName)
+      function blobToDataUrl(blob: Blob) {
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(String(reader.result))
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+      }
+
+      async function imageUrlToDataUrl(url: string) {
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('Bild konnte nicht geladen werden.')
+        const blob = await res.blob()
+        return blobToDataUrl(blob)
+      }
     } catch (e: any) {
       setMsg(e?.message ?? 'PDF-Erstellung fehlgeschlagen.')
     } finally {
