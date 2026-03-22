@@ -486,8 +486,12 @@ export default function LogDetailsPage() {
 
       const fileName = `${safeFileName(projectName)}_${safeFileName(title)}.pdf`
       pdf.save(fileName)
-
-  }
+      } catch (e: any) {
+      setMsg(e?.message ?? 'PDF-Erstellung fehlgeschlagen.')
+      } finally {
+      setPdfBusy(false)
+      }
+      }
 
   if (!projectId || !logId) {
     return (
