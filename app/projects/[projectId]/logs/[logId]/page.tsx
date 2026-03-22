@@ -99,6 +99,21 @@ function safeFileName(value: string) {
     .replace(/[^\w.\-]+/g, '_')
     .replace(/_+/g, '_')
 }
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(String(reader.result))
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function imageUrlToDataUrl(url: string) {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('Bild konnte nicht geladen werden.')
+  const blob = await res.blob()
+  return blobToDataUrl(blob)
+}
 
 export default function LogDetailsPage() {
   const params = useParams()
@@ -471,26 +486,7 @@ export default function LogDetailsPage() {
 
       const fileName = `${safeFileName(projectName)}_${safeFileName(title)}.pdf`
       pdf.save(fileName)
-      function blobToDataUrl(blob: Blob) {
-        return new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(String(reader.result))
-          reader.onerror = reject
-          reader.readAsDataURL(blob)
-        })
-      }
 
-      async function imageUrlToDataUrl(url: string) {
-        const res = await fetch(url)
-        if (!res.ok) throw new Error('Bild konnte nicht geladen werden.')
-        const blob = await res.blob()
-        return blobToDataUrl(blob)
-      }
-    } catch (e: any) {
-      setMsg(e?.message ?? 'PDF-Erstellung fehlgeschlagen.')
-    } finally {
-      setPdfBusy(false)
-    }
   }
 
   if (!projectId || !logId) {
