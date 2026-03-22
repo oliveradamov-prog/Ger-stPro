@@ -757,7 +757,7 @@ export default function LogEditPage() {
           <div className="card">
             <div className="sectionTop">
               <div className="label" style={{ marginBottom: 0 }}>
-                Mitarbeiter / Firmen / Stunden / Zeit
+                Firmen/ Mitarbeiter / Stunden / Zeit
               </div>
               <button
                 type="button"
