@@ -279,6 +279,151 @@ export default function LogDetailsPage() {
         }
       }
 
+      const addSectionTitle = (title: string) => {
+        ensureSpace(24)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(14)
+        pdf.setTextColor(25, 25, 25)
+        pdf.text(title, margin, y)
+        y += 18
+      }
+
+      const addTextBlock = (label: string, value: string) => {
+        ensureSpace(50)
+
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(11)
+        pdf.setTextColor(70, 70, 70)
+        pdf.text(label, margin, y)
+
+        y += 14
+
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(12)
+        pdf.setTextColor(20, 20, 20)
+
+        const lines = pdf.splitTextToSize(value || '—', contentWidth)
+        pdf.text(lines, margin, y)
+
+        y += lines.length * 16 + 10
+      }
+
+      const addTable = (headers: string[], rows: string[][]) => {
+        const colWidth = contentWidth / headers.length
+        const baseRowHeight = 24
+
+        ensureSpace(40)
+
+        pdf.setFillColor(245, 245, 245)
+        pdf.rect(margin, y, contentWidth, baseRowHeight, 'F')
+
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(10)
+        pdf.setTextColor(60, 60, 60)
+
+        headers.forEach((h, i) => {
+          const lines = pdf.splitTextToSize(h, colWidth - 12)
+          pdf.text(lines, margin + i * colWidth + 6, y + 15)
+        })
+
+        y += baseRowHeight
+
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(10)
+        pdf.setTextColor(20, 20, 20)
+
+        rows.forEach((row) => {
+          const prepared = row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
+          const maxLines = Math.max(...prepared.map((x: string[]) => x.length), 1)
+          const rowHeight = Math.max(baseRowHeight, maxLines * 12 + 10)
+
+          ensureSpace(rowHeight)
+
+          prepared.forEach((cellLines: string[], i) => {
+            pdf.text(cellLines, margin + i * colWidth + 6, y + 15)
+          })
+
+          y += rowHeight
+        })
+
+        y += 10
+      }
+
+      const title = log?.description?.trim() ? log.description : 'Tagesbericht'
+      const projectName = project?.name ?? 'Projekt'
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(22)
+      pdf.setTextColor(20, 20, 20)
+      pdf.text(title, margin, y)
+      y += 26
+
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(11)
+      pdf.setTextColor(90, 90, 90)
+      pdf.text(`${formatDateLong(log?.log_date || '')} • ${projectName}`, margin, y)
+      y += 20
+
+      addTextBlock('Standort / Baustelle', project?.location || '—')
+      addTextBlock('Client / Auftraggeber', project?.client || '—')
+      addTextBlock('Firma', log?.external_company?.trim() || '—')
+      addTextBlock('Bauleiternamen', asText(log?.site_managers_names) || '—')
+
+      addSectionTitle('Firmen / Mitarbeiter / Stunden / Zeit')
+      if (workers.length === 0) {
+        addTextBlock('Mitarbeiterdaten', 'Keine Mitarbeiterdaten vorhanden.')
+      } else {
+        addTable(
+          ['Firma', 'Mitarbeiter', 'Stunden', 'Zeit'],
+          workers.map((w) => [
+            w.company || '—',
+            w.name || '—',
+            formatHours(w.hours),
+            w.time_range || '—',
+          ])
+        )
+      }
+
+      addTextBlock('Ausgeführte Arbeiten', log?.work_description?.trim() || '—')
+      addTextBlock('Bemerkungen', log?.remarks?.trim() || '—')
+
+      addSectionTitle('Besprechungen')
+      if (meetings.length === 0) {
+        addTextBlock('Besprechungen', 'Keine Besprechungen vorhanden.')
+      } else {
+        addTable(
+          ['Thema', 'Termin'],
+          meetings.map((row) => [
+            row.thema || '—',
+            row.termin || '—',
+          ])
+        )
+      }
+
+      addSectionTitle('Vorkommnisse')
+      if (events.length === 0) {
+        addTextBlock('Vorkommnisse', 'Keine Vorkommnisse vorhanden.')
+      } else {
+        addTable(
+          ['Vorkommnis', 'Erlediger', 'Status', 'Termin'],
+          events.map((row) => [
+            row.text || '—',
+            row.erlediger || '—',
+            row.status || '—',
+            row.termin || '—',
+          ])
+        )
+      }
+
+      const fileName = `${safeFileName(projectName)}_${safeFileName(title)}.pdf`
+      pdf.save(fileName)
+    } catch (e: any) {
+      setMsg(e?.message ?? 'PDF-Erstellung fehlgeschlagen.')
+    } finally {
+      setPdfBusy(false)
+    }
+  }
+
       const addTextBlock = (label: string, value: string) => {
         pdf.setFont('helvetica', 'bold')
         pdf.setFontSize(11)
