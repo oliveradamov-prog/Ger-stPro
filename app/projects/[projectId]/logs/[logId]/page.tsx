@@ -94,6 +94,11 @@ function formatHours(v: number | null) {
   const s = String(v).replace('.', ',')
   return s
 }
+function safeFileName(value: string) {
+  return String(value || 'tagesbericht')
+    .replace(/[^\w.\-]+/g, '_')
+    .replace(/_+/g, '_')
+}
 
 export default function LogDetailsPage() {
   const params = useParams()
@@ -121,6 +126,7 @@ export default function LogDetailsPage() {
 
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState('')
+  const [pdfBusy, setPdfBusy] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -250,6 +256,120 @@ export default function LogDetailsPage() {
       cancelled = true
     }
   }, [photos])
+  
+  async function exportPdf() {
+    try {
+      setMsg('')
+      setPdfBusy(true)
+
+      const { jsPDF } = await import('jspdf')
+
+      const pdf = new jsPDF('p', 'pt', 'a4')
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+
+      const margin = 36
+      const contentWidth = pageWidth - margin * 2
+      let y = margin
+
+      const ensureSpace = (needed: number) => {
+        if (y + needed > pageHeight - margin) {
+          pdf.addPage()
+          y = margin
+        }
+      }
+
+      const addTextBlock = (label: string, value: string) => {
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(11)
+        pdf.setTextColor(70, 70, 70)
+        pdf.text(label, margin, y)
+
+        y += 14
+
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(12)
+        pdf.setTextColor(20, 20, 20)
+
+        const lines = pdf.splitTextToSize(value || '—', contentWidth)
+        pdf.text(lines, margin, y)
+
+        y += lines.length * 16 + 10
+      }
+
+      const addTable = (headers: string[], rows: string[][]) => {
+        const colWidth = contentWidth / headers.length
+        const rowHeight = 24
+
+        ensureSpace(40)
+
+        pdf.setFillColor(245, 245, 245)
+        pdf.rect(margin, y, contentWidth, rowHeight, 'F')
+
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(10)
+
+        headers.forEach((h, i) => {
+          pdf.text(h, margin + i * colWidth + 6, y + 16)
+        })
+
+        y += rowHeight
+
+        pdf.setFont('helvetica', 'normal')
+
+        rows.forEach((row) => {
+          ensureSpace(rowHeight)
+
+          row.forEach((cell, i) => {
+            pdf.text(cell || '—', margin + i * colWidth + 6, y + 16)
+          })
+
+          y += rowHeight
+        })
+
+        y += 10
+      }
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(22)
+      pdf.text(logTitle, margin, y)
+      y += 26
+
+      pdf.setFontSize(11)
+      pdf.setTextColor(90, 90, 90)
+      pdf.text(`${formatDateLong(log?.log_date || '')} • ${projectTitle}`, margin, y)
+      y += 20
+
+      addTextBlock('Standort', project?.location || '—')
+      addTextBlock('Client', project?.client || '—')
+      addTextBlock('Firma', log?.external_company || '—')
+      addTextBlock('Bauleiter', asText(log?.site_managers_names) || '—')
+
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(14)
+      pdf.text('Mitarbeiter', margin, y)
+      y += 14
+
+      addTable(
+        ['Firma', 'Mitarbeiter', 'Stunden', 'Zeit'],
+        workers.map((w) => [
+          w.company || '—',
+          w.name || '—',
+          formatHours(w.hours),
+          w.time_range || '—',
+        ])
+      )
+
+      addTextBlock('Ausgeführte Arbeiten', log?.work_description || '—')
+      addTextBlock('Bemerkungen', log?.remarks || '—')
+
+      pdf.save(`${safeFileName(projectTitle)}_${safeFileName(logTitle)}.pdf`)
+    } catch (e: any) {
+      setMsg('PDF Fehler')
+    } finally {
+      setPdfBusy(false)
+    }
+  }
 
   if (!projectId || !logId) {
     return (
@@ -276,6 +396,15 @@ export default function LogDetailsPage() {
         </Link>
 
         <div className="btnRow">
+          <button
+            className="btn"
+            onClick={exportPdf}
+            type="button"
+            disabled={pdfBusy || loading}
+          >
+            {pdfBusy ? 'PDF wird erstellt…' : 'PDF herunterladen'}
+          </button>
+
           <button
             className="btn"
             onClick={() => window.print()}
