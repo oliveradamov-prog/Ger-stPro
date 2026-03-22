@@ -415,14 +415,14 @@ export default function LogDetailsPage() {
         )
       }
 
-      const fileName = `${safeFileName(projectName)}_${safeFileName(title)}.pdf`
-      pdf.save(fileName)
-    } catch (e: any) {
-      setMsg(e?.message ?? 'PDF-Erstellung fehlgeschlagen.')
-    } finally {
-      setPdfBusy(false)
-    }
-  }
+      const fileName = `${safeFileName(projectTitle)}_${safeFileName(logTitle)}.pdf`;
+      pdf.save(fileName);
+      } catch (e: any) {
+      setMsg(e?.message ?? 'PDF-Erstellung fehlgeschlagen.');
+      } finally {
+      setPdfBusy(false);
+      }
+      }
 
       const addTextBlock = (label: string, value: string) => {
         pdf.setFont('helvetica', 'bold')
