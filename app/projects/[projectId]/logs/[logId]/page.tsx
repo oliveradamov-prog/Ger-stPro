@@ -855,15 +855,14 @@ export default function LogDetailsPage() {
           justify-content:flex-end;
         }
 
-        .logo{
-          width:120px;
-          max-height:80px;
-          object-fit:contain;
-          border-radius:10px;
-          background:rgba(255,255,255,.03);
-          padding:8px;
-          border:1px solid var(--border);
-        }
+.logo{
+  width:120px;
+  height:auto;
+  object-fit:contain;
+  background:transparent;
+  padding:0;
+  border:none;
+}
 
         .logoPlaceholder{
           width:120px;
