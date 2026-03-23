@@ -370,20 +370,7 @@ export default function LogDetailsPage() {
       if (effectiveLogoUrl) {
         try {
           const logoDataUrl = await imageUrlToDataUrl(effectiveLogoUrl)
-
-          const logoBoxWidth = 90
-          const logoBoxHeight = 54
-          const logoX = pageWidth - margin - logoBoxWidth
-          const logoY = margin - 6
-
-          pdf.addImage(
-            logoDataUrl,
-            'PNG',
-            logoX,
-            logoY,
-            logoBoxWidth,
-            logoBoxHeight
-          )
+          pdf.addImage(logoDataUrl, 'PNG', pageWidth - margin - 90, y - 8, 72, 48)
         } catch {}
       }
 
@@ -391,7 +378,7 @@ export default function LogDetailsPage() {
       pdf.setFontSize(22)
       pdf.setTextColor(20, 20, 20)
       pdf.text(title, margin, y)
-      y += 34
+      y += 26
 
       pdf.setFont('helvetica', 'normal')
       pdf.setFontSize(11)
