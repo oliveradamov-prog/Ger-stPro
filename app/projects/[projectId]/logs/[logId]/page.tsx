@@ -1042,6 +1042,51 @@ export default function LogDetailsPage() {
           .topRow,.btnRow,.backLink{display:none!important;}
           .page{padding:0!important;}
 
+          .grid{
+            display:block !important;
+          }
+
+          .card{
+            break-inside:auto !important;
+            page-break-inside:auto !important;
+            overflow:visible !important;
+            box-shadow:none !important;
+          }
+
+          .photos{
+            display:block !important;
+          }
+
+          .photoWrap{
+            display:block !important;
+            break-inside:avoid !important;
+            page-break-inside:avoid !important;
+            margin-bottom:24px !important;
+          }
+
+          .photoCard{
+            display:block !important;
+            break-inside:avoid !important;
+            page-break-inside:avoid !important;
+            overflow:visible !important;
+          }
+
+          .photo{
+            display:block !important;
+            break-inside:avoid !important;
+            page-break-inside:avoid !important;
+          }
+
+          .photo img{
+            display:block !important;
+            width:100% !important;
+            height:auto !important;
+            max-height:none !important;
+            object-fit:contain !important;
+            break-inside:avoid !important;
+            page-break-inside:avoid !important;
+          }
+
           body::after {
             content: "Erstellt mit GerüstPro app";
             position: fixed;
