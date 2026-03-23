@@ -372,7 +372,6 @@ export default function LogDetailsPage() {
 
         y += 10
       }
-
       const title = log?.description?.trim() ? log.description : 'Tagesbericht'
       const projectName = project?.name ?? 'Projekt'
 
@@ -384,10 +383,38 @@ export default function LogDetailsPage() {
 
       if (effectiveLogoUrl) {
         try {
+          const logoImg = new Image()
+          logoImg.src = effectiveLogoUrl
+
+          await new Promise<void>((resolve) => {
+            logoImg.onload = () => resolve()
+            logoImg.onerror = () => resolve()
+          })
+
+          const naturalWidth = logoImg.naturalWidth || 1
+          const naturalHeight = logoImg.naturalHeight || 1
+
+          const scale = Math.min(
+            logoBoxWidth / naturalWidth,
+            logoBoxHeight / naturalHeight
+          )
+
+          const renderWidth = naturalWidth * scale
+          const renderHeight = naturalHeight * scale
+
+          const drawX = logoX + (logoBoxWidth - renderWidth) / 2
+          const drawY = logoY + (logoBoxHeight - renderHeight) / 2
+
           const logoDataUrl = await imageUrlToDataUrl(effectiveLogoUrl)
-          pdf.setDrawColor(220, 220, 220)
-          pdf.roundedRect(logoX - 4, logoY - 4, logoBoxWidth + 8, logoBoxHeight + 8, 8, 8)
-          pdf.addImage(logoDataUrl, 'PNG', logoX, logoY, logoBoxWidth, logoBoxHeight)
+
+          pdf.addImage(
+            logoDataUrl,
+            'PNG',
+            drawX,
+            drawY,
+            renderWidth,
+            renderHeight
+          )
         } catch {}
       }
 
