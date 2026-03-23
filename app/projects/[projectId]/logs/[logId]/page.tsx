@@ -832,7 +832,7 @@ export default function LogDetailsPage() {
           </div>
         </div>
       )}
-
+      <div className="printFooter">Erstellt mit GerüstPro app</div>
       <style jsx>{baseStyles}</style>
 
       <style jsx>{`
@@ -1081,23 +1081,76 @@ export default function LogDetailsPage() {
             display:block !important;
             width:100% !important;
             height:auto !important;
-            max-height:none !important;
+            max-height:420px !important;
             object-fit:contain !important;
             break-inside:avoid !important;
             page-break-inside:avoid !important;
           }
 
-          body::after {
-            content: "Erstellt mit GerüstPro app";
-            position: fixed;
-            bottom: 10px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 12px;
-            color: #666;
+          .printFooter{
+            display:none;
           }
-        }
+
+          @media print{
+            .topRow,.btnRow,.backLink{display:none!important;}
+            .page{padding:0!important;}
+
+            .grid{
+              display:block !important;
+            }
+
+            .card{
+              break-inside:auto !important;
+              page-break-inside:auto !important;
+              overflow:visible !important;
+              box-shadow:none !important;
+            }
+
+            .photos{
+              display:block !important;
+            }
+
+            .photoWrap{
+              display:block !important;
+              break-inside:avoid !important;
+              page-break-inside:avoid !important;
+              margin-bottom:24px !important;
+            }
+
+            .photoCard{
+              display:block !important;
+              break-inside:avoid !important;
+              page-break-inside:avoid !important;
+              overflow:visible !important;
+            }
+
+            .photo{
+              display:block !important;
+              break-inside:avoid !important;
+              page-break-inside:avoid !important;
+            }
+
+            .photo img{
+              display:block !important;
+              width:100% !important;
+              height:auto !important;
+              max-height:380px !important;
+              object-fit:contain !important;
+              break-inside:avoid !important;
+              page-break-inside:avoid !important;
+            }
+
+            .printFooter{
+              display:block !important;
+              position:fixed;
+              bottom:10px;
+              left:0;
+              right:0;
+              text-align:center;
+              font-size:12px;
+              color:#666;
+            }
+          }
       `}</style>
     </div>
   )
