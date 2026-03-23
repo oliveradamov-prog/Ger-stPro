@@ -367,24 +367,32 @@ export default function LogDetailsPage() {
       const title = log?.description?.trim() ? log.description : 'Tagesbericht'
       const projectName = project?.name ?? 'Projekt'
 
+      const headerTop = margin
+      const logoBoxWidth = 84
+      const logoBoxHeight = 52
+      const logoX = pageWidth - margin - logoBoxWidth
+      const logoY = headerTop
+
       if (effectiveLogoUrl) {
         try {
           const logoDataUrl = await imageUrlToDataUrl(effectiveLogoUrl)
-          pdf.addImage(logoDataUrl, 'PNG', pageWidth - margin - 90, y - 8, 72, 48)
+          pdf.setDrawColor(220, 220, 220)
+          pdf.roundedRect(logoX - 4, logoY - 4, logoBoxWidth + 8, logoBoxHeight + 8, 8, 8)
+          pdf.addImage(logoDataUrl, 'PNG', logoX, logoY, logoBoxWidth, logoBoxHeight)
         } catch {}
       }
 
       pdf.setFont('helvetica', 'bold')
       pdf.setFontSize(22)
       pdf.setTextColor(20, 20, 20)
-      pdf.text(title, margin, y)
-      y += 26
+      pdf.text(title, margin, headerTop + 18)
 
       pdf.setFont('helvetica', 'normal')
       pdf.setFontSize(11)
       pdf.setTextColor(90, 90, 90)
-      pdf.text(`${formatDateLong(log?.log_date || '')} • ${projectName}`, margin, y)
-      y += 20
+      pdf.text(`${formatDateLong(log?.log_date || '')} • ${projectName}`, margin, headerTop + 38)
+
+      y = headerTop + 74
 
       addTextBlock('Standort / Baustelle', project?.location || '—')
       addTextBlock('Client / Auftraggeber', project?.client || '—')
@@ -442,55 +450,74 @@ export default function LogDetailsPage() {
       if (photos.length === 0) {
         addTextBlock('Fotos', 'Keine Fotos vorhanden.')
       } else {
-        const photoWidth = (contentWidth - 12) / 2
+        const photoWidth = (contentWidth - 16) / 2
         const photoHeight = 150
+        const captionHeight = 26
 
         for (let i = 0; i < photos.length; i++) {
           const p = photos[i]
           const url = photoUrls[p.path]
           if (!url) continue
 
-          if (i % 2 === 0) {
-            ensureSpace(photoHeight + 40)
+          const isLeft = i % 2 === 0
+          const x = isLeft ? margin : margin + photoWidth + 16
+
+          if (isLeft) {
+            ensureSpace(photoHeight + captionHeight + 20)
           }
 
-          const x = i % 2 === 0 ? margin : margin + photoWidth + 12
-          const currentY = y
+          const blockY = y
 
           try {
             const photoDataUrl = await imageUrlToDataUrl(url)
-            pdf.addImage(photoDataUrl, 'JPEG', x, currentY, photoWidth, photoHeight)
+            pdf.setDrawColor(225, 225, 225)
+            pdf.roundedRect(x, blockY, photoWidth, photoHeight, 8, 8)
+            pdf.addImage(photoDataUrl, 'JPEG', x + 2, blockY + 2, photoWidth - 4, photoHeight - 4)
           } catch {
             continue
           }
 
           pdf.setFont('helvetica', 'normal')
-          pdf.setFontSize(9)
+          pdf.setFontSize(8)
           pdf.setTextColor(90, 90, 90)
           pdf.text(
-            `Baustelle: ${project?.location || '—'} | Zeit: ${formatDateTime(p.created_at) || '—'}`,
+            `Baustelle: ${project?.location || '—'}`,
             x,
-            currentY + photoHeight + 12,
-            { maxWidth: photoWidth } as any
+            blockY + photoHeight + 10
+          )
+          pdf.text(
+            `Zeit: ${formatDateTime(p.created_at) || '—'}`,
+            x,
+            blockY + photoHeight + 20
           )
 
-          if (i % 2 === 1) {
-            y += photoHeight + 28
+          if (!isLeft) {
+            y += photoHeight + captionHeight + 18
           }
         }
 
         if (photos.length % 2 === 1) {
-          y += photoHeight + 28
+          y += photoHeight + captionHeight + 18
         }
       }
 
-      const fileName = `${safeFileName(projectName)}_${safeFileName(title)}.pdf`
-      pdf.save(fileName)
-      } catch (e: any) {
-      setMsg(e?.message ?? 'PDF-Erstellung fehlgeschlagen.')
-      } finally {
-      setPdfBusy(false)
-      }
+          const pageCount = pdf.getNumberOfPages()
+
+          for (let page = 1; page <= pageCount; page++) {
+            pdf.setPage(page)
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(9)
+            pdf.setTextColor(120, 120, 120)
+            pdf.text('Erstellt mit GerüstPro app', margin, pageHeight - 16)
+          }
+
+          const fileName = `${safeFileName(projectName)}_${safeFileName(title)}.pdf`
+          pdf.save(fileName)
+        } catch (e: any) {
+          setMsg(e?.message ?? 'PDF-Erstellung fehlgeschlagen.')
+        } finally {
+          setPdfBusy(false)
+        }
       }
 
   if (!projectId || !logId) {
