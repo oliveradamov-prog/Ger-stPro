@@ -155,6 +155,15 @@ export default function LogDetailsPage() {
         return
       }
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session) {
+        setLoading(false)
+        return
+      }
+
       try {
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
