@@ -920,6 +920,8 @@ export default function LogDetailsPage() {
           color:var(--text);
           overflow:hidden;
           min-width:0;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
         .cardTitle{color:var(--muted);font-weight:950;font-size:14px;margin-bottom:10px;}
@@ -1000,6 +1002,9 @@ export default function LogDetailsPage() {
           overflow:hidden;
           min-width:0;
         }
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
 
         .photo{
           display:block;
@@ -1012,6 +1017,8 @@ export default function LogDetailsPage() {
           height:220px;
           object-fit:cover;
           display:block;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
 
         .photoInfo{
@@ -1034,6 +1041,17 @@ export default function LogDetailsPage() {
         @media print{
           .topRow,.btnRow,.backLink{display:none!important;}
           .page{padding:0!important;}
+
+          body::after {
+            content: "Erstellt mit GerüstPro app";
+            position: fixed;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+          }
         }
       `}</style>
     </div>
