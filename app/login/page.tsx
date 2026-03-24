@@ -1,14 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
 
 const PROFILE_LOGO_BUCKET = 'project-logos'
 
 export default function LoginPage() {
-  const router = useRouter()
 
   const [mode, setMode] = useState<'login' | 'signup'>('login')
 
@@ -22,12 +20,28 @@ export default function LoginPage() {
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault()
+
+    if (busy) return
+
     setMsg('')
+
+    const trimmedEmail = email.trim()
+
+    if (!trimmedEmail) {
+      setMsg('Bitte Email eingeben.')
+      return
+    }
+
+    if (!password) {
+      setMsg('Bitte Passwort eingeben.')
+      return
+    }
+
     setBusy(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
         password,
       })
 
@@ -36,17 +50,19 @@ export default function LoginPage() {
         return
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
+      const session = data.session
       if (!session) {
-        setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht geladen werden. Bitte Seite neu laden.')
-        return
+        const {
+          data: { session: loadedSession },
+        } = await supabase.auth.getSession()
+
+        if (!loadedSession) {
+          setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht geladen werden. Bitte Seite neu laden.')
+          return
+        }
       }
 
-      router.push('/projects')
-      router.refresh()
+      window.location.href = '/projects'
     } catch (err: any) {
       setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
     } finally {
@@ -192,7 +208,7 @@ export default function LoginPage() {
             </div>
 
             <button className="primaryBtn" type="submit" disabled={busy}>
-              {busy ? 'Bitte warten…' : 'Sign In'}
+              {busy ? 'Anmeldung läuft…' : 'Anmelden'}
             </button>
           </form>
         ) : (
