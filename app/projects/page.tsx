@@ -18,26 +18,52 @@ export default function ProjectsPage() {
   const [msg, setMsg] = useState('')
 
   useEffect(() => {
-    loadProjects()
-  }, [])
+    let cancelled = false
 
-  async function loadProjects() {
-    setMsg('')
-    setLoading(true)
+    async function loadProjects() {
+      setMsg('')
+      setLoading(true)
 
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, name, location, client')
-      .order('created_at', { ascending: false })
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
-    if (error) {
-      setMsg(error.message)
-    } else {
-      setProjects((data as Project[]) ?? [])
+        if (!session) {
+          if (!cancelled) {
+            setLoading(false)
+            window.location.href = '/login'
+          }
+          return
+        }
+
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id, name, location, client')
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        if (!cancelled) {
+          setProjects((data as Project[]) ?? [])
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setMsg(e?.message ?? 'Projekte konnten nicht geladen werden.')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
     }
 
-    setLoading(false)
-  }
+    loadProjects()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <RequireAuth>
