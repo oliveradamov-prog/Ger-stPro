@@ -50,106 +50,22 @@ export default function LoginPage() {
     if (busy) return
 
     setMsg('')
-
-    const trimmedEmail = email.trim()
-
-    if (!trimmedEmail) {
-      setMsg('Bitte Email eingeben.')
-      return
-    }
-
-    if (!password) {
-      setMsg('Bitte Passwort eingeben.')
-      return
-    }
-
     setBusy(true)
 
     try {
-      setMsg('Anmeldung wird gestartet...')
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
 
-      let sessionLoaded = false
-
-      try {
-        const signInPromise = supabase.auth.signInWithPassword({
-          email: trimmedEmail,
-          password,
-        })
-
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('SUPABASE_TIMEOUT')), 8000)
-        )
-
-        const result: any = await Promise.race([signInPromise, timeoutPromise])
-
-        if (result?.error) {
-          setMsg(result.error.message)
-          return
-        }
-
-        sessionLoaded = true
-      } catch (err: any) {
-        if (err?.message === 'SUPABASE_TIMEOUT') {
-          setMsg('Direkter Login wird versucht...')
-
-          const data = await signInViaRest(trimmedEmail, password)
-
-          if (!data?.access_token || !data?.refresh_token) {
-            throw new Error('Login erfolgreich, aber Token fehlen.')
-          }
-
-          const setSessionPromise = supabase.auth.setSession({
-            access_token: data.access_token,
-            refresh_token: data.refresh_token,
-          })
-
-          const setSessionTimeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 8000)
-          )
-
-          await Promise.race([setSessionPromise, setSessionTimeout])
-          sessionLoaded = true
-        } else {
-          throw err
-        }
-      }
-
-      if (!sessionLoaded) {
-        setMsg('Sitzung konnte nicht geladen werden.')
+      if (error) {
+        setMsg(error.message)
         return
       }
-
-      setMsg('Sitzung wird geladen...')
-
-      let hasSession = false
-
-      for (let i = 0; i < 12; i++) {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        if (session) {
-          hasSession = true
-          break
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 300))
-      }
-
-      if (!hasSession) {
-        setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht bestätigt werden.')
-        return
-      }
-
-      setMsg('Weiterleitung...')
 
       window.location.replace('/projects')
     } catch (err: any) {
-      if (err?.message === 'SESSION_TIMEOUT') {
-        setMsg('Sitzung konnte nicht gespeichert werden.')
-      } else {
-        setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
-      }
+      setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
     } finally {
       setBusy(false)
     }
