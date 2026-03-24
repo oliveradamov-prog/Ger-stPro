@@ -40,19 +40,35 @@ export default function LoginPage() {
     setBusy(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      setMsg('Alte Sitzung wird geprüft...')
+
+      try {
+        await supabase.auth.signOut({ scope: 'local' })
+      } catch {}
+
+      setMsg('Anmeldung wird gestartet...')
+
+      const signInPromise = supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       })
 
-      if (error) {
-        setMsg(error.message)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Login-Timeout. Bitte erneut versuchen.')), 12000)
+      )
+
+      const result: any = await Promise.race([signInPromise, timeoutPromise])
+
+      if (result?.error) {
+        setMsg(result.error.message)
         return
       }
 
+      setMsg('Sitzung wird geladen...')
+
       let hasSession = false
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 12; i++) {
         const {
           data: { session },
         } = await supabase.auth.getSession()
@@ -62,13 +78,15 @@ export default function LoginPage() {
           break
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 250))
+        await new Promise((resolve) => setTimeout(resolve, 300))
       }
 
       if (!hasSession) {
-        setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht rechtzeitig geladen werden. Bitte erneut versuchen.')
+        setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht geladen werden.')
         return
       }
+
+      setMsg('Weiterleitung...')
 
       window.location.replace('/projects')
     } catch (err: any) {
@@ -200,6 +218,9 @@ export default function LoginPage() {
                 placeholder="email@example.com"
                 autoComplete="email"
                 inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </div>
 
@@ -212,6 +233,7 @@ export default function LoginPage() {
                 type="password"
                 placeholder="********"
                 autoComplete="current-password"
+                spellCheck={false}
               />
             </div>
 
