@@ -43,7 +43,10 @@ export default function LoginPage() {
       setMsg('Alte Sitzung wird geprüft...')
 
       try {
-        await supabase.auth.signOut({ scope: 'local' })
+        await Promise.race([
+          supabase.auth.signOut({ scope: 'local' }),
+          new Promise((resolve) => setTimeout(resolve, 1500)),
+        ])
       } catch {}
 
       setMsg('Anmeldung wird gestartet...')
