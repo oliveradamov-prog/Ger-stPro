@@ -2,24 +2,8 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 
-function createFreshAuthClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: false,
-        flowType: 'pkce',
-        storage: window.localStorage,
-      },
-    }
-  )
-}
 
 const PROFILE_LOGO_BUCKET = 'project-logos'
 
@@ -59,9 +43,7 @@ export default function LoginPage() {
     try {
       setMsg('Anmeldung wird gestartet...')
 
-      const freshAuth = createFreshAuthClient()
-
-      const signInPromise = freshAuth.auth.signInWithPassword({
+      const signInPromise = supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       })
@@ -95,14 +77,8 @@ export default function LoginPage() {
       }
 
       if (!hasSession) {
-        const {
-          data: { session: freshSession },
-        } = await freshAuth.auth.getSession()
-
-        if (!freshSession) {
-          setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht geladen werden.')
-          return
-        }
+        setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht geladen werden.')
+        return
       }
 
       setMsg('Weiterleitung...')
