@@ -4,6 +4,31 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
 
+async function signInViaRest(email: string, password: string) {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    }
+  )
+
+  const data = await res.json()
+
+  if (!res.ok) {
+    throw new Error(data?.msg || data?.error_description || data?.error || 'Login fehlgeschlagen.')
+  }
+
+  return data
+}
+
 
 const PROFILE_LOGO_BUCKET = 'project-logos'
 
@@ -43,19 +68,54 @@ export default function LoginPage() {
     try {
       setMsg('Anmeldung wird gestartet...')
 
-      const signInPromise = supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
-      })
+      let sessionLoaded = false
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Login-Timeout. Bitte erneut versuchen.')), 12000)
-      )
+      try {
+        const signInPromise = supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password,
+        })
 
-      const result: any = await Promise.race([signInPromise, timeoutPromise])
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('SUPABASE_TIMEOUT')), 8000)
+        )
 
-      if (result?.error) {
-        setMsg(result.error.message)
+        const result: any = await Promise.race([signInPromise, timeoutPromise])
+
+        if (result?.error) {
+          setMsg(result.error.message)
+          return
+        }
+
+        sessionLoaded = true
+      } catch (err: any) {
+        if (err?.message === 'SUPABASE_TIMEOUT') {
+          setMsg('Direkter Login wird versucht...')
+
+          const data = await signInViaRest(trimmedEmail, password)
+
+          if (!data?.access_token || !data?.refresh_token) {
+            throw new Error('Login erfolgreich, aber Token fehlen.')
+          }
+
+          const setSessionPromise = supabase.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+          })
+
+          const setSessionTimeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('SESSION_TIMEOUT')), 8000)
+          )
+
+          await Promise.race([setSessionPromise, setSessionTimeout])
+          sessionLoaded = true
+        } else {
+          throw err
+        }
+      }
+
+      if (!sessionLoaded) {
+        setMsg('Sitzung konnte nicht geladen werden.')
         return
       }
 
@@ -77,7 +137,7 @@ export default function LoginPage() {
       }
 
       if (!hasSession) {
-        setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht geladen werden.')
+        setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht bestätigt werden.')
         return
       }
 
@@ -85,7 +145,11 @@ export default function LoginPage() {
 
       window.location.replace('/projects')
     } catch (err: any) {
-      setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
+      if (err?.message === 'SESSION_TIMEOUT') {
+        setMsg('Sitzung konnte nicht gespeichert werden.')
+      } else {
+        setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
+      }
     } finally {
       setBusy(false)
     }
