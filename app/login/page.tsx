@@ -25,19 +25,33 @@ export default function LoginPage() {
     setMsg('')
     setBusy(true)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (error) {
-      setMsg(error.message)
+      if (error) {
+        setMsg(error.message)
+        return
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session) {
+        setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht geladen werden. Bitte Seite neu laden.')
+        return
+      }
+
+      router.push('/projects')
+      router.refresh()
+    } catch (err: any) {
+      setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
+    } finally {
       setBusy(false)
-      return
     }
-
-    router.push('/projects')
-    router.refresh()
   }
 
   async function uploadProfileLogo(userId: string, file: File) {
