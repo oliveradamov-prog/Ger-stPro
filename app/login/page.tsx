@@ -40,7 +40,7 @@ export default function LoginPage() {
     setBusy(true)
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       })
@@ -50,19 +50,27 @@ export default function LoginPage() {
         return
       }
 
-      const session = data.session
-      if (!session) {
+      let hasSession = false
+
+      for (let i = 0; i < 10; i++) {
         const {
-          data: { session: loadedSession },
+          data: { session },
         } = await supabase.auth.getSession()
 
-        if (!loadedSession) {
-          setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht geladen werden. Bitte Seite neu laden.')
-          return
+        if (session) {
+          hasSession = true
+          break
         }
+
+        await new Promise((resolve) => setTimeout(resolve, 250))
       }
 
-      window.location.href = '/projects'
+      if (!hasSession) {
+        setMsg('Anmeldung erfolgreich, aber Sitzung konnte nicht rechtzeitig geladen werden. Bitte erneut versuchen.')
+        return
+      }
+
+      window.location.replace('/projects')
     } catch (err: any) {
       setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
     } finally {
