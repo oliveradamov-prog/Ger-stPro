@@ -42,25 +42,48 @@ export default function LoginPage() {
     setBusy(true)
 
     try {
-      setMsg('1/5 Anmeldung startet...')
+      setMsg('1/6 Direkter Login startet...')
 
-      const signInPromise = supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
-      })
-
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('LOGIN_TIMEOUT')), 10000)
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          },
+          body: JSON.stringify({
+            email: trimmedEmail,
+            password,
+          }),
+        }
       )
 
-      const result: any = await Promise.race([signInPromise, timeoutPromise])
+      const data = await res.json()
 
-      if (result?.error) {
-        setMsg(`2/5 LOGIN ERROR: ${result.error.message}`)
+      if (!res.ok) {
+        setMsg(`2/6 REST LOGIN ERROR: ${data?.msg || data?.error_description || data?.error || 'Unbekannter Fehler'}`)
         return
       }
 
-      setMsg('3/5 Login erfolgreich, Sitzung wird geprüft...')
+      if (!data?.access_token || !data?.refresh_token) {
+        setMsg('2/6 REST LOGIN OHNE TOKEN')
+        return
+      }
+
+      setMsg('3/6 Token erhalten, Sitzung wird gesetzt...')
+
+      const { error: setSessionError } = await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      })
+
+      if (setSessionError) {
+        setMsg(`4/6 SET SESSION ERROR: ${setSessionError.message}`)
+        return
+      }
+
+      setMsg('5/6 Sitzung wird geprüft...')
 
       const {
         data: { session },
@@ -68,26 +91,20 @@ export default function LoginPage() {
       } = await supabase.auth.getSession()
 
       if (sessionError) {
-        setMsg(`4/5 SESSION ERROR: ${sessionError.message}`)
+        setMsg(`5/6 SESSION ERROR: ${sessionError.message}`)
         return
       }
 
       if (!session) {
-        setMsg('4/5 SESSION FEHLT nach Login')
+        setMsg('5/6 SESSION FEHLT nach setSession')
         return
       }
 
-      setMsg('5/5 Sitzung da, Weiterleitung...')
+      setMsg('6/6 Sitzung da, Weiterleitung...')
 
-      setTimeout(() => {
-        window.location.replace('/projects')
-      }, 800)
+      window.location.replace('/projects')
     } catch (err: any) {
-      if (err?.message === 'LOGIN_TIMEOUT') {
-        setMsg('2/5 LOGIN TIMEOUT bei signInWithPassword')
-      } else {
-        setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
-      }
+      setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
     } finally {
       setBusy(false)
     }
