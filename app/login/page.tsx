@@ -3,14 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { supabase } from '@/lib/supabaseClient'
 
 
 const PROFILE_LOGO_BUCKET = 'project-logos'
 
 export default function LoginPage() {
   const router = useRouter()
-  const supabase = createClient()
 
   const [mode, setMode] = useState<'login' | 'signup'>('login')
 

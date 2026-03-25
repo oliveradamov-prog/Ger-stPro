@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { supabase } from '@/lib/supabaseClient'
 
 type RequireAuthProps = {
   children: React.ReactNode
@@ -10,7 +10,6 @@ type RequireAuthProps = {
 
 export default function RequireAuth({ children }: RequireAuthProps) {
   const router = useRouter()
-  const supabase = createClient()
   const [checking, setChecking] = useState(true)
   const [allowed, setAllowed] = useState(false)
 
