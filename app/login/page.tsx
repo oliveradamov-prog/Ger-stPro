@@ -42,17 +42,46 @@ export default function LoginPage() {
     setBusy(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      setMsg('1/4 Anmeldung startet...')
+
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       })
 
       if (error) {
-        setMsg(error.message)
+        setMsg(`LOGIN ERROR: ${error.message}`)
         return
       }
 
-      window.location.replace('/projects')
+      setMsg('2/4 Login erfolgreich, Sitzung wird geprüft...')
+
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        setMsg(`SESSION ERROR: ${sessionError.message}`)
+        return
+      }
+
+      if (!session) {
+        setMsg('SESSION FEHLT nach Login')
+        return
+      }
+
+      const storageKey = Object.keys(localStorage).find((key) =>
+        key.includes('supabase')
+      )
+
+      setMsg(
+        `3/4 Sitzung da. Storage-Key: ${storageKey ?? 'nicht gefunden'}`
+      )
+
+      setTimeout(() => {
+        window.location.replace('/projects')
+      }, 800)
     } catch (err: any) {
       setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
     } finally {
