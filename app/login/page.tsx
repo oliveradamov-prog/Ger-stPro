@@ -73,13 +73,22 @@ export default function LoginPage() {
 
       setMsg('3/6 Token erhalten, Sitzung wird gesetzt...')
 
-      const { error: setSessionError } = await supabase.auth.setSession({
+      const setSessionPromise = supabase.auth.setSession({
         access_token: data.access_token,
         refresh_token: data.refresh_token,
       })
 
-      if (setSessionError) {
-        setMsg(`4/6 SET SESSION ERROR: ${setSessionError.message}`)
+      const setSessionTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SET_SESSION_TIMEOUT')), 10000)
+      )
+
+      const setSessionResult: any = await Promise.race([
+        setSessionPromise,
+        setSessionTimeout,
+      ])
+
+      if (setSessionResult?.error) {
+        setMsg(`4/6 SET SESSION ERROR: ${setSessionResult.error.message}`)
         return
       }
 
@@ -103,11 +112,15 @@ export default function LoginPage() {
       setMsg('6/6 Sitzung da, Weiterleitung...')
 
       window.location.replace('/projects')
-    } catch (err: any) {
-      setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
-    } finally {
-      setBusy(false)
-    }
+      } catch (err: any) {
+        if (err?.message === 'SET_SESSION_TIMEOUT') {
+          setMsg('4/6 SET SESSION TIMEOUT')
+        } else {
+          setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
+        }
+      } finally {
+        setBusy(false)
+      }
   }
 
   async function uploadProfileLogo(userId: string, file: File) {
