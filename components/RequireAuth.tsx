@@ -18,19 +18,20 @@ export default function RequireAuth({ children }: RequireAuthProps) {
 
     async function checkAuth() {
       try {
-        const { data, error } = await supabase.auth.getSession()
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
         if (!mounted) return
 
-        if (error || !data.session) {
+        if (session) {
+          setAllowed(true)
+          setChecking(false)
+        } else {
           setAllowed(false)
           setChecking(false)
           router.replace('/login')
-          return
         }
-
-        setAllowed(true)
-        setChecking(false)
       } catch {
         if (!mounted) return
         setAllowed(false)
@@ -52,21 +53,20 @@ export default function RequireAuth({ children }: RequireAuthProps) {
       } else {
         setAllowed(false)
         setChecking(false)
-        router.replace('/login')
       }
     })
-
-    const timeout = setTimeout(() => {
-      if (!mounted) return
-      setChecking(false)
-    }, 5000)
 
     return () => {
       mounted = false
       subscription.unsubscribe()
-      clearTimeout(timeout)
     }
   }, [router])
+
+  useEffect(() => {
+    if (!checking && !allowed) {
+      router.replace('/login')
+    }
+  }, [checking, allowed, router])
 
   if (checking) {
     return (

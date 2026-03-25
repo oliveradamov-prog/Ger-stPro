@@ -1,38 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
-
-async function signInViaRest(email: string, password: string) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    }
-  )
-
-  const data = await res.json()
-
-  if (!res.ok) {
-    throw new Error(data?.msg || data?.error_description || data?.error || 'Login fehlgeschlagen.')
-  }
-
-  return data
-}
-
 
 const PROFILE_LOGO_BUCKET = 'project-logos'
 
 export default function LoginPage() {
+  const router = useRouter()
 
   const [mode, setMode] = useState<'login' | 'signup'>('login')
 
@@ -50,11 +26,24 @@ export default function LoginPage() {
     if (busy) return
 
     setMsg('')
+
+    const trimmedEmail = email.trim()
+
+    if (!trimmedEmail) {
+      setMsg('Bitte Email eingeben.')
+      return
+    }
+
+    if (!password) {
+      setMsg('Bitte Passwort eingeben.')
+      return
+    }
+
     setBusy(true)
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: trimmedEmail,
         password,
       })
 
@@ -213,7 +202,7 @@ export default function LoginPage() {
             </div>
 
             <button className="primaryBtn" type="submit" disabled={busy}>
-              {busy ? 'Anmeldung läuft…' : 'Anmelden'}
+              {busy ? 'Bitte warten…' : 'Anmelden'}
             </button>
           </form>
         ) : (
@@ -238,6 +227,9 @@ export default function LoginPage() {
                 placeholder="email@example.com"
                 autoComplete="email"
                 inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </div>
 
@@ -250,6 +242,7 @@ export default function LoginPage() {
                 type="password"
                 placeholder="Mindestens 6 Zeichen"
                 autoComplete="new-password"
+                spellCheck={false}
               />
             </div>
 
