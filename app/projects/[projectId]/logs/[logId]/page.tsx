@@ -313,61 +313,184 @@ export default function LogDetailsPage() {
       }
 
       const addTextBlock = (label: string, value: string) => {
-        ensureSpace(50)
+        const boxPaddingX = 14
+        const boxPaddingTop = 14
+        const boxPaddingBottom = 12
+        const labelGap = 14
+        const lineHeight = 16
+        const radius = 10
 
-        pdf.setFont('helvetica', 'bold')
-        pdf.setFontSize(11)
-        pdf.setTextColor(70, 70, 70)
-        pdf.text(`${label}:`, margin, y)
+        const textWidth = contentWidth - boxPaddingX * 2
+        const lines = pdf.splitTextToSize(value || '—', textWidth)
 
-        y += 14
+        const drawBoxHeader = (title: string) => {
+          pdf.setFont('helvetica', 'bold')
+          pdf.setFontSize(11)
+          pdf.setTextColor(70, 70, 70)
+          pdf.text(title, margin + boxPaddingX, y + boxPaddingTop)
+        }
 
-        pdf.setFont('helvetica', 'normal')
-        pdf.setFontSize(12)
-        pdf.setTextColor(20, 20, 20)
+        let remainingLines = [...lines]
+        let firstPage = true
 
-        const lines = pdf.splitTextToSize(value || '—', contentWidth)
-        pdf.text(lines, margin, y)
+        while (remainingLines.length > 0) {
+          const titleText = firstPage ? label : `${label} (Fortsetzung)`
+          const availableHeight = pageHeight - margin - y
+          const usableHeight =
+            availableHeight - boxPaddingTop - labelGap - boxPaddingBottom
 
-        y += lines.length * 16 + 10
+          const maxLinesThisPage = Math.max(
+            1,
+            Math.floor(usableHeight / lineHeight)
+          )
+
+          const linesForThisPage = remainingLines.slice(0, maxLinesThisPage)
+          remainingLines = remainingLines.slice(maxLinesThisPage)
+
+          const boxHeight =
+            boxPaddingTop +
+            labelGap +
+            linesForThisPage.length * lineHeight +
+            boxPaddingBottom
+
+          if (y + boxHeight > pageHeight - margin) {
+            pdf.addPage()
+            y = margin
+          }
+
+          pdf.setDrawColor(225, 225, 225)
+          pdf.roundedRect(margin, y, contentWidth, boxHeight, radius, radius)
+
+          drawBoxHeader(titleText)
+
+          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(12)
+          pdf.setTextColor(20, 20, 20)
+
+          let textY = y + boxPaddingTop + labelGap + 2
+          for (const line of linesForThisPage) {
+            pdf.text(line, margin + boxPaddingX, textY)
+            textY += lineHeight
+          }
+
+          y += boxHeight + 10
+          firstPage = false
+        }
+
+        if (lines.length === 0) {
+          const boxHeight = boxPaddingTop + labelGap + lineHeight + boxPaddingBottom
+
+          if (y + boxHeight > pageHeight - margin) {
+            pdf.addPage()
+            y = margin
+          }
+
+          pdf.setDrawColor(225, 225, 225)
+          pdf.roundedRect(margin, y, contentWidth, boxHeight, radius, radius)
+
+          drawBoxHeader(label)
+
+          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(12)
+          pdf.setTextColor(20, 20, 20)
+          pdf.text('—', margin + boxPaddingX, y + boxPaddingTop + labelGap + 2)
+
+          y += boxHeight + 10
+        }
       }
 
-      const addTable = (headers: string[], rows: string[][]) => {
+      const addTable = (sectionTitle: string, headers: string[], rows: string[][]) => {
         const colWidth = contentWidth / headers.length
-        const baseRowHeight = 24
+        const headerMinHeight = 24
+        const rowPaddingY = 8
+        const lineHeight = 12
 
-        ensureSpace(40)
+        const drawSectionTitle = () => {
+          pdf.setFont('helvetica', 'bold')
+          pdf.setFontSize(14)
+          pdf.setTextColor(25, 25, 25)
+          pdf.text(sectionTitle, margin, y)
+          y += 18
+        }
 
-        pdf.setFillColor(245, 245, 245)
-        pdf.rect(margin, y, contentWidth, baseRowHeight, 'F')
+        const getHeaderHeight = () => {
+          const preparedHeaders = headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
+          const maxLines = Math.max(...preparedHeaders.map((x: string[]) => x.length), 1)
+          return Math.max(headerMinHeight, maxLines * lineHeight + rowPaddingY)
+        }
 
-        pdf.setFont('helvetica', 'bold')
-        pdf.setFontSize(10)
-        pdf.setTextColor(60, 60, 60)
+        const drawHeader = () => {
+          const preparedHeaders = headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
+          const headerHeight = getHeaderHeight()
 
-        headers.forEach((h, i) => {
-          const lines = pdf.splitTextToSize(h, colWidth - 12)
-          pdf.text(lines, margin + i * colWidth + 6, y + 15)
-        })
+          pdf.setFillColor(245, 245, 245)
+          pdf.roundedRect(margin, y, contentWidth, headerHeight, 8, 8, 'F')
 
-        y += baseRowHeight
+          pdf.setFont('helvetica', 'bold')
+          pdf.setFontSize(10)
+          pdf.setTextColor(60, 60, 60)
 
-        pdf.setFont('helvetica', 'normal')
-        pdf.setFontSize(10)
-        pdf.setTextColor(20, 20, 20)
+          preparedHeaders.forEach((lines: string[], i) => {
+            pdf.text(lines, margin + i * colWidth + 6, y + 15)
+          })
 
-        rows.forEach((row) => {
+          y += headerHeight
+        }
+
+        const getRowHeight = (row: string[]) => {
           const prepared = row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
           const maxLines = Math.max(...prepared.map((x: string[]) => x.length), 1)
-          const rowHeight = Math.max(baseRowHeight, maxLines * 12 + 10)
+          return Math.max(24, maxLines * lineHeight + rowPaddingY)
+        }
 
-          ensureSpace(rowHeight)
+        const drawRow = (row: string[]) => {
+          const prepared = row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
+          const rowHeight = getRowHeight(row)
+
+          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(10)
+          pdf.setTextColor(20, 20, 20)
 
           prepared.forEach((cellLines: string[], i) => {
             pdf.text(cellLines, margin + i * colWidth + 6, y + 15)
           })
 
           y += rowHeight
+        }
+
+        const headerHeight = getHeaderHeight()
+        const firstRowHeight = rows.length > 0 ? getRowHeight(rows[0]) : 24
+
+        if (y + 18 + headerHeight + firstRowHeight > pageHeight - margin) {
+          pdf.addPage()
+          y = margin
+        }
+
+        drawSectionTitle()
+        drawHeader()
+
+        if (rows.length === 0) {
+          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(10)
+          pdf.setTextColor(20, 20, 20)
+          pdf.text('Keine Daten vorhanden.', margin, y + 15)
+          y += 30
+          y += 10
+          return
+        }
+
+        rows.forEach((row) => {
+          const rowHeight = getRowHeight(row)
+
+          if (y + rowHeight > pageHeight - margin) {
+            pdf.addPage()
+            y = margin
+
+            drawSectionTitle()
+            drawHeader()
+          }
+
+          drawRow(row)
         })
 
         y += 10
@@ -435,51 +558,42 @@ export default function LogDetailsPage() {
       addTextBlock('Firma', log?.external_company?.trim() || '—')
       addTextBlock('Bauleiternamen', asText(log?.site_managers_names) || '—')
 
-      addSectionTitle('Firmen / Mitarbeiter / Stunden / Zeit')
-      if (workers.length === 0) {
-        addTextBlock('Mitarbeiterdaten', 'Keine Mitarbeiterdaten vorhanden.')
-      } else {
-        addTable(
-          ['Firma', 'Mitarbeiter', 'Stunden', 'Zeit'],
-          workers.map((w) => [
-            w.company || '—',
-            w.name || '—',
-            formatHours(w.hours),
-            w.time_range || '—',
-          ])
-        )
-      }
+      addTable(
+        'Firmen / Mitarbeiter / Stunden / Zeit',
+        ['Firma', 'Mitarbeiter', 'Stunden', 'Zeit'],
+        workers.length === 0
+          ? []
+          : workers.map((w) => [
+              w.company || '—',
+              w.name || '—',
+              formatHours(w.hours),
+              w.time_range || '—',
+            ])
+      )
 
-      addTextBlock('Ausgeführte Arbeiten', log?.work_description?.trim() || '—')
-      addTextBlock('Bemerkungen', log?.remarks?.trim() || '—')
-
-      addSectionTitle('Besprechungen')
-      if (meetings.length === 0) {
-        addTextBlock('Besprechungen', 'Keine Besprechungen vorhanden.')
-      } else {
-        addTable(
-          ['Thema', 'Termin'],
-          meetings.map((row) => [
+    addTable(
+      'Besprechungen',
+      ['Thema', 'Termin'],
+      meetings.length === 0
+        ? []
+        : meetings.map((row) => [
             row.thema || '—',
             row.termin || '—',
           ])
-        )
-      }
+    )
 
-      addSectionTitle('Vorkommnisse')
-      if (events.length === 0) {
-        addTextBlock('Vorkommnisse', 'Keine Vorkommnisse vorhanden.')
-      } else {
-        addTable(
-          ['Vorkommnis', 'Erlediger', 'Status', 'Termin'],
-          events.map((row) => [
-            row.text || '—',
-            row.erlediger || '—',
-            row.status || '—',
-            row.termin || '—',
-          ])
-        )
-      }
+  addTable(
+    'Vorkommnisse',
+    ['Vorkommnis', 'Erlediger', 'Status', 'Termin'],
+    events.length === 0
+      ? []
+      : events.map((row) => [
+          row.text || '—',
+          row.erlediger || '—',
+          row.status || '—',
+          row.termin || '—',
+        ])
+  )
 
       addSectionTitle('Fotos')
 
