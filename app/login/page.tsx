@@ -42,19 +42,25 @@ export default function LoginPage() {
     setBusy(true)
 
     try {
-      setMsg('1/4 Anmeldung startet...')
+      setMsg('1/5 Anmeldung startet...')
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const signInPromise = supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       })
 
-      if (error) {
-        setMsg(`LOGIN ERROR: ${error.message}`)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('LOGIN_TIMEOUT')), 10000)
+      )
+
+      const result: any = await Promise.race([signInPromise, timeoutPromise])
+
+      if (result?.error) {
+        setMsg(`2/5 LOGIN ERROR: ${result.error.message}`)
         return
       }
 
-      setMsg('2/4 Login erfolgreich, Sitzung wird geprüft...')
+      setMsg('3/5 Login erfolgreich, Sitzung wird geprüft...')
 
       const {
         data: { session },
@@ -62,28 +68,26 @@ export default function LoginPage() {
       } = await supabase.auth.getSession()
 
       if (sessionError) {
-        setMsg(`SESSION ERROR: ${sessionError.message}`)
+        setMsg(`4/5 SESSION ERROR: ${sessionError.message}`)
         return
       }
 
       if (!session) {
-        setMsg('SESSION FEHLT nach Login')
+        setMsg('4/5 SESSION FEHLT nach Login')
         return
       }
 
-      const storageKey = Object.keys(localStorage).find((key) =>
-        key.includes('supabase')
-      )
-
-      setMsg(
-        `3/4 Sitzung da. Storage-Key: ${storageKey ?? 'nicht gefunden'}`
-      )
+      setMsg('5/5 Sitzung da, Weiterleitung...')
 
       setTimeout(() => {
         window.location.replace('/projects')
       }, 800)
     } catch (err: any) {
-      setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
+      if (err?.message === 'LOGIN_TIMEOUT') {
+        setMsg('2/5 LOGIN TIMEOUT bei signInWithPassword')
+      } else {
+        setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
+      }
     } finally {
       setBusy(false)
     }
