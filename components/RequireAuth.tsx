@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/client'
 
 type RequireAuthProps = {
   children: React.ReactNode
@@ -10,63 +10,51 @@ type RequireAuthProps = {
 
 export default function RequireAuth({ children }: RequireAuthProps) {
   const router = useRouter()
+  const supabase = createClient()
   const [checking, setChecking] = useState(true)
   const [allowed, setAllowed] = useState(false)
 
   useEffect(() => {
     let mounted = true
 
-    async function checkAuth() {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+    async function run() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-        if (!mounted) return
+      if (!mounted) return
 
-        if (session) {
-          setAllowed(true)
-          setChecking(false)
-        } else {
-          setAllowed(false)
-          setChecking(false)
-          router.replace('/login')
-        }
-      } catch {
-        if (!mounted) return
+      if (user) {
+        setAllowed(true)
+      } else {
         setAllowed(false)
-        setChecking(false)
         router.replace('/login')
       }
+
+      setChecking(false)
     }
 
-    checkAuth()
+    run()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return
 
-      if (session) {
+      if (session?.user) {
         setAllowed(true)
-        setChecking(false)
       } else {
         setAllowed(false)
-        setChecking(false)
       }
+
+      setChecking(false)
     })
 
     return () => {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [router])
-
-  useEffect(() => {
-    if (!checking && !allowed) {
-      router.replace('/login')
-    }
-  }, [checking, allowed, router])
+  }, [router, supabase])
 
   if (checking) {
     return (

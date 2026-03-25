@@ -1,14 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+
 
 const PROFILE_LOGO_BUCKET = 'project-logos'
 
 export default function LoginPage() {
   const router = useRouter()
+  const supabase = createClient()
 
   const [mode, setMode] = useState<'login' | 'signup'>('login')
 
@@ -25,9 +27,8 @@ export default function LoginPage() {
 
     if (busy) return
 
-    setMsg('')
-
     const trimmedEmail = email.trim()
+    setMsg('')
 
     if (!trimmedEmail) {
       setMsg('Bitte Email eingeben.')
@@ -42,85 +43,23 @@ export default function LoginPage() {
     setBusy(true)
 
     try {
-      setMsg('1/6 Direkter Login startet...')
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          },
-          body: JSON.stringify({
-            email: trimmedEmail,
-            password,
-          }),
-        }
-      )
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        setMsg(`2/6 REST LOGIN ERROR: ${data?.msg || data?.error_description || data?.error || 'Unbekannter Fehler'}`)
-        return
-      }
-
-      if (!data?.access_token || !data?.refresh_token) {
-        setMsg('2/6 REST LOGIN OHNE TOKEN')
-        return
-      }
-
-      setMsg('3/6 Token erhalten, Sitzung wird gesetzt...')
-
-      const setSessionPromise = supabase.auth.setSession({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
+      const { error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
       })
 
-      const setSessionTimeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('SET_SESSION_TIMEOUT')), 10000)
-      )
-
-      const setSessionResult: any = await Promise.race([
-        setSessionPromise,
-        setSessionTimeout,
-      ])
-
-      if (setSessionResult?.error) {
-        setMsg(`4/6 SET SESSION ERROR: ${setSessionResult.error.message}`)
+      if (error) {
+        setMsg(error.message)
         return
       }
 
-      setMsg('5/6 Sitzung wird geprüft...')
-
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
-
-      if (sessionError) {
-        setMsg(`5/6 SESSION ERROR: ${sessionError.message}`)
-        return
-      }
-
-      if (!session) {
-        setMsg('5/6 SESSION FEHLT nach setSession')
-        return
-      }
-
-      setMsg('6/6 Sitzung da, Weiterleitung...')
-
-      window.location.replace('/projects')
-      } catch (err: any) {
-        if (err?.message === 'SET_SESSION_TIMEOUT') {
-          setMsg('4/6 SET SESSION TIMEOUT')
-        } else {
-          setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
-        }
-      } finally {
-        setBusy(false)
-      }
+      router.replace('/projects')
+      router.refresh()
+    } catch (err: any) {
+      setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function uploadProfileLogo(userId: string, file: File) {

@@ -2,12 +2,13 @@
   "name": "daily-log-builder",
   "private": true,
   "scripts": {
-    "dev":"next dev --webpack -p 3000",
+    "dev": "next dev --webpack -p 3000",
     "build": "next build",
     "start": "next start"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.1",
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.100.0",
     "@tailwindcss/postcss": "^4.2.0",
     "clsx": "^2.1.1",
     "html2canvas": "^1.4.1",
