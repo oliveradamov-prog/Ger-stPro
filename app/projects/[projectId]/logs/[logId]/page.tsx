@@ -396,148 +396,100 @@ export default function LogDetailsPage() {
 
 
       const addTable = (sectionTitle: string, headers: string[], rows: string[][]) => {
-        const paddingX = 14
-        const paddingTop = 14
-        const paddingBottom = 12
-        const titleGap = 18
-        const lineHeight = 12
+        const colWidth = contentWidth / headers.length
         const headerMinHeight = 24
         const rowPaddingY = 8
+        const lineHeight = 12
 
-        const innerWidth = contentWidth - paddingX * 2
-        const colWidth = innerWidth / headers.length
-
-        const getHeaderLines = () =>
-          headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
+        const drawSectionTitle = () => {
+          pdf.setFont('helvetica', 'bold')
+          pdf.setFontSize(14)
+          pdf.setTextColor(25, 25, 25)
+          pdf.text(sectionTitle, margin, y)
+          y += 18
+        }
 
         const getHeaderHeight = () => {
-          const prepared = getHeaderLines()
-          const maxLines = Math.max(...prepared.map((x: string[]) => x.length), 1)
+          const preparedHeaders = headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
+          const maxLines = Math.max(...preparedHeaders.map((x: string[]) => x.length), 1)
           return Math.max(headerMinHeight, maxLines * lineHeight + rowPaddingY)
         }
 
-        const getRowPrepared = (row: string[]) =>
-          row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
-
-        const getRowHeight = (row: string[]) => {
-          const prepared = getRowPrepared(row)
-          const maxLines = Math.max(...prepared.map((x: string[]) => x.length), 1)
-          return Math.max(24, maxLines * lineHeight + rowPaddingY)
-        }
-
-        const drawPage = (title: string, pageRows: string[][]) => {
+        const drawHeader = () => {
+          const preparedHeaders = headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
           const headerHeight = getHeaderHeight()
 
-          const rowsHeight =
-            pageRows.length === 0
-              ? 30
-              : pageRows.reduce((sum, row) => sum + getRowHeight(row), 0)
-
-          const boxHeight =
-            paddingTop + titleGap + headerHeight + rowsHeight + paddingBottom
-
-          if (y + boxHeight > pageHeight - margin) {
-            pdf.addPage()
-            y = margin
-          }
-
-          // DOBOZ
-          pdf.setDrawColor(225, 225, 225)
-          pdf.roundedRect(margin, y, contentWidth, boxHeight, 10, 10)
-
-          const startX = margin + paddingX
-          let innerY = y + paddingTop + titleGap
-
-          // CÍM
-          pdf.setFont('helvetica', 'bold')
-          pdf.setFontSize(11)
-          pdf.setTextColor(70, 70, 70)
-          pdf.text(title, margin + paddingX, y + paddingTop)
-
-          // HEADER
-          const preparedHeaders = getHeaderLines()
-
           pdf.setFillColor(245, 245, 245)
-          pdf.roundedRect(startX, innerY, innerWidth, headerHeight, 8, 8, 'F')
+          pdf.roundedRect(margin, y, contentWidth, headerHeight, 8, 8, 'F')
 
           pdf.setFont('helvetica', 'bold')
           pdf.setFontSize(10)
           pdf.setTextColor(60, 60, 60)
 
           preparedHeaders.forEach((lines: string[], i) => {
-            pdf.text(lines, startX + i * colWidth + 6, innerY + 15)
+            pdf.text(lines, margin + i * colWidth + 6, y + 15)
           })
 
-          innerY += headerHeight
+          y += headerHeight
+        }
 
-          // ROWS
+        const getRowHeight = (row: string[]) => {
+          const prepared = row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
+          const maxLines = Math.max(...prepared.map((x: string[]) => x.length), 1)
+          return Math.max(24, maxLines * lineHeight + rowPaddingY)
+        }
+
+        const drawRow = (row: string[]) => {
+          const prepared = row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
+          const rowHeight = getRowHeight(row)
+
           pdf.setFont('helvetica', 'normal')
           pdf.setFontSize(10)
           pdf.setTextColor(20, 20, 20)
 
-          pageRows.forEach((row) => {
-            const prepared = getRowPrepared(row)
-            const rowHeight = getRowHeight(row)
-
-            prepared.forEach((cellLines: string[], i) => {
-              pdf.text(cellLines, startX + i * colWidth + 6, innerY + 15)
-            })
-
-            innerY += rowHeight
+          prepared.forEach((cellLines: string[], i) => {
+            pdf.text(cellLines, margin + i * colWidth + 6, y + 15)
           })
 
-          y += boxHeight + 10
+          y += rowHeight
         }
 
+        const headerHeight = getHeaderHeight()
+        const firstRowHeight = rows.length > 0 ? getRowHeight(rows[0]) : 24
+
+        if (y + 18 + headerHeight + firstRowHeight > pageHeight - margin) {
+          pdf.addPage()
+          y = margin
+        }
+
+        drawSectionTitle()
+        drawHeader()
+
         if (rows.length === 0) {
-          drawPage(sectionTitle, [])
+          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(10)
+          pdf.setTextColor(20, 20, 20)
+          pdf.text('Keine Daten vorhanden.', margin, y + 15)
+          y += 30
+          y += 10
           return
         }
 
-        let remainingRows = [...rows]
-        let firstPage = true
+        rows.forEach((row) => {
+          const rowHeight = getRowHeight(row)
 
-        while (remainingRows.length > 0) {
-          const headerHeight = getHeaderHeight()
-
-          let availableHeight =
-            pageHeight - margin - y - paddingTop - titleGap - headerHeight - paddingBottom
-
-          // ha túl kevés hely maradt → új oldal
-          if (availableHeight < 40) {
+          if (y + rowHeight > pageHeight - margin) {
             pdf.addPage()
             y = margin
-            availableHeight =
-              pageHeight - margin - y - paddingTop - titleGap - headerHeight - paddingBottom
+
+            drawSectionTitle()
+            drawHeader()
           }
 
-          let consumed = 0
-          let rowsForPage: string[][] = []
+          drawRow(row)
+        })
 
-          for (const row of remainingRows) {
-            const rowHeight = getRowHeight(row)
-
-            if (rowsForPage.length > 0 && consumed + rowHeight > availableHeight) {
-              break
-            }
-
-            rowsForPage.push(row)
-            consumed += rowHeight
-          }
-
-          // BIZTONSÁGI fallback (mindig legalább 1 sor)
-          if (rowsForPage.length === 0) {
-            rowsForPage = [remainingRows[0]]
-          }
-
-          drawPage(
-            firstPage ? sectionTitle : `${sectionTitle} (Fortsetzung)`,
-            rowsForPage
-          )
-
-          remainingRows = remainingRows.slice(rowsForPage.length)
-          firstPage = false
-        }
+        y += 10
       }
       const title = log?.description?.trim() ? log.description : 'Tagesbericht'
       const projectName = project?.name ?? 'Projekt'
