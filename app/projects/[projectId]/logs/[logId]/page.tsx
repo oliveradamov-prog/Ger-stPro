@@ -311,190 +311,215 @@ export default function LogDetailsPage() {
         pdf.text(title, margin, y)
         y += 18
       }
+      
+      const drawSectionBox = (
+        title: string,
+        boxHeight: number,
+        renderContent: (startY: number) => void
+      ) => {
+        const radius = 10
+        const paddingX = 14
+        const paddingTop = 14
+        const titleGap = 18
+
+        if (y + boxHeight > pageHeight - margin) {
+          pdf.addPage()
+          y = margin
+        }
+
+        pdf.setDrawColor(225, 225, 225)
+        pdf.roundedRect(margin, y, contentWidth, boxHeight, radius, radius)
+
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(11)
+        pdf.setTextColor(70, 70, 70)
+        pdf.text(title, margin + paddingX, y + paddingTop)
+
+        const contentStartY = y + paddingTop + titleGap
+        renderContent(contentStartY)
+
+        y += boxHeight + 10
+      }
 
       const addTextBlock = (label: string, value: string) => {
-        const boxPaddingX = 14
-        const boxPaddingTop = 14
-        const boxPaddingBottom = 12
-        const labelGap = 14
+        const paddingX = 14
+        const paddingTop = 14
+        const paddingBottom = 12
+        const titleGap = 18
         const lineHeight = 16
-        const radius = 10
 
-        const textWidth = contentWidth - boxPaddingX * 2
+        const textWidth = contentWidth - paddingX * 2
         const lines = pdf.splitTextToSize(value || '—', textWidth)
-
-        const drawBoxHeader = (title: string) => {
-          pdf.setFont('helvetica', 'bold')
-          pdf.setFontSize(11)
-          pdf.setTextColor(70, 70, 70)
-          pdf.text(title, margin + boxPaddingX, y + boxPaddingTop)
-        }
 
         let remainingLines = [...lines]
         let firstPage = true
 
         while (remainingLines.length > 0) {
-          const titleText = firstPage ? label : `${label} (Fortsetzung)`
-          const availableHeight = pageHeight - margin - y
+          const currentTitle = firstPage ? label : `${label} (Fortsetzung)`
+
           const usableHeight =
-            availableHeight - boxPaddingTop - labelGap - boxPaddingBottom
+            pageHeight - margin - y - paddingTop - titleGap - paddingBottom
 
-          const maxLinesThisPage = Math.max(
-            1,
-            Math.floor(usableHeight / lineHeight)
-          )
-
+          const maxLinesThisPage = Math.max(1, Math.floor(usableHeight / lineHeight))
           const linesForThisPage = remainingLines.slice(0, maxLinesThisPage)
           remainingLines = remainingLines.slice(maxLinesThisPage)
 
           const boxHeight =
-            boxPaddingTop +
-            labelGap +
-            linesForThisPage.length * lineHeight +
-            boxPaddingBottom
+            paddingTop + titleGap + linesForThisPage.length * lineHeight + paddingBottom
 
-          if (y + boxHeight > pageHeight - margin) {
-            pdf.addPage()
-            y = margin
-          }
+          drawSectionBox(currentTitle, boxHeight, (contentStartY) => {
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(12)
+            pdf.setTextColor(20, 20, 20)
 
-          pdf.setDrawColor(225, 225, 225)
-          pdf.roundedRect(margin, y, contentWidth, boxHeight, radius, radius)
+            let textY = contentStartY
+            for (const line of linesForThisPage) {
+              pdf.text(line, margin + paddingX, textY)
+              textY += lineHeight
+            }
+          })
 
-          drawBoxHeader(titleText)
-
-          pdf.setFont('helvetica', 'normal')
-          pdf.setFontSize(12)
-          pdf.setTextColor(20, 20, 20)
-
-          let textY = y + boxPaddingTop + labelGap + 2
-          for (const line of linesForThisPage) {
-            pdf.text(line, margin + boxPaddingX, textY)
-            textY += lineHeight
-          }
-
-          y += boxHeight + 10
           firstPage = false
         }
 
         if (lines.length === 0) {
-          const boxHeight = boxPaddingTop + labelGap + lineHeight + boxPaddingBottom
+          const boxHeight = paddingTop + titleGap + lineHeight + paddingBottom
 
-          if (y + boxHeight > pageHeight - margin) {
-            pdf.addPage()
-            y = margin
-          }
-
-          pdf.setDrawColor(225, 225, 225)
-          pdf.roundedRect(margin, y, contentWidth, boxHeight, radius, radius)
-
-          drawBoxHeader(label)
-
-          pdf.setFont('helvetica', 'normal')
-          pdf.setFontSize(12)
-          pdf.setTextColor(20, 20, 20)
-          pdf.text('—', margin + boxPaddingX, y + boxPaddingTop + labelGap + 2)
-
-          y += boxHeight + 10
+          drawSectionBox(label, boxHeight, (contentStartY) => {
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(12)
+            pdf.setTextColor(20, 20, 20)
+            pdf.text('—', margin + paddingX, contentStartY)
+          })
         }
       }
 
-      const addTable = (sectionTitle: string, headers: string[], rows: string[][]) => {
-        const colWidth = contentWidth / headers.length
-        const headerMinHeight = 24
-        const rowPaddingY = 8
-        const lineHeight = 12
 
-        const drawSectionTitle = () => {
-          pdf.setFont('helvetica', 'bold')
-          pdf.setFontSize(14)
-          pdf.setTextColor(25, 25, 25)
-          pdf.text(sectionTitle, margin, y)
-          y += 18
-        }
+  const addTable = (sectionTitle: string, headers: string[], rows: string[][]) => {
+    const paddingX = 14
+    const paddingTop = 14
+    const paddingBottom = 12
+    const titleGap = 18
+    const lineHeight = 12
+    const headerMinHeight = 24
+    const rowPaddingY = 8
 
-        const getHeaderHeight = () => {
-          const preparedHeaders = headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
-          const maxLines = Math.max(...preparedHeaders.map((x: string[]) => x.length), 1)
-          return Math.max(headerMinHeight, maxLines * lineHeight + rowPaddingY)
-        }
+    const innerWidth = contentWidth - paddingX * 2
+    const colWidth = innerWidth / headers.length
 
-        const drawHeader = () => {
-          const preparedHeaders = headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
-          const headerHeight = getHeaderHeight()
+    const getHeaderLines = () => headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
+
+    const getHeaderHeight = () => {
+      const preparedHeaders = getHeaderLines()
+      const maxLines = Math.max(...preparedHeaders.map((x: string[]) => x.length), 1)
+      return Math.max(headerMinHeight, maxLines * lineHeight + rowPaddingY)
+    }
+
+    const getRowPrepared = (row: string[]) =>
+      row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
+
+    const getRowHeight = (row: string[]) => {
+      const prepared = getRowPrepared(row)
+      const maxLines = Math.max(...prepared.map((x: string[]) => x.length), 1)
+      return Math.max(24, maxLines * lineHeight + rowPaddingY)
+    }
+
+    const drawTableInsideBox = (
+      title: string,
+      currentRows: string[][],
+      firstPageForSection: boolean
+    ) => {
+      const headerHeight = getHeaderHeight()
+      const rowsHeight =
+        currentRows.length === 0
+          ? 30
+          : currentRows.reduce((sum, row) => sum + getRowHeight(row), 0)
+
+      const boxHeight = paddingTop + titleGap + headerHeight + rowsHeight + paddingBottom
+
+      drawSectionBox(
+        firstPageForSection ? title : `${title} (Fortsetzung)`,
+        boxHeight,
+        (contentStartY) => {
+          const startX = margin + paddingX
+          let innerY = contentStartY
+
+          const preparedHeaders = getHeaderLines()
 
           pdf.setFillColor(245, 245, 245)
-          pdf.roundedRect(margin, y, contentWidth, headerHeight, 8, 8, 'F')
+          pdf.roundedRect(startX, innerY, innerWidth, headerHeight, 8, 8, 'F')
 
           pdf.setFont('helvetica', 'bold')
           pdf.setFontSize(10)
           pdf.setTextColor(60, 60, 60)
 
           preparedHeaders.forEach((lines: string[], i) => {
-            pdf.text(lines, margin + i * colWidth + 6, y + 15)
+            pdf.text(lines, startX + i * colWidth + 6, innerY + 15)
           })
 
-          y += headerHeight
-        }
+          innerY += headerHeight
 
-        const getRowHeight = (row: string[]) => {
-          const prepared = row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
-          const maxLines = Math.max(...prepared.map((x: string[]) => x.length), 1)
-          return Math.max(24, maxLines * lineHeight + rowPaddingY)
-        }
-
-        const drawRow = (row: string[]) => {
-          const prepared = row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
-          const rowHeight = getRowHeight(row)
-
-          pdf.setFont('helvetica', 'normal')
-          pdf.setFontSize(10)
-          pdf.setTextColor(20, 20, 20)
-
-          prepared.forEach((cellLines: string[], i) => {
-            pdf.text(cellLines, margin + i * colWidth + 6, y + 15)
-          })
-
-          y += rowHeight
-        }
-
-        const headerHeight = getHeaderHeight()
-        const firstRowHeight = rows.length > 0 ? getRowHeight(rows[0]) : 24
-
-        if (y + 18 + headerHeight + firstRowHeight > pageHeight - margin) {
-          pdf.addPage()
-          y = margin
-        }
-
-        drawSectionTitle()
-        drawHeader()
-
-        if (rows.length === 0) {
-          pdf.setFont('helvetica', 'normal')
-          pdf.setFontSize(10)
-          pdf.setTextColor(20, 20, 20)
-          pdf.text('Keine Daten vorhanden.', margin, y + 15)
-          y += 30
-          y += 10
-          return
-        }
-
-        rows.forEach((row) => {
-          const rowHeight = getRowHeight(row)
-
-          if (y + rowHeight > pageHeight - margin) {
-            pdf.addPage()
-            y = margin
-
-            drawSectionTitle()
-            drawHeader()
+          if (currentRows.length === 0) {
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(10)
+            pdf.setTextColor(20, 20, 20)
+            pdf.text('Keine Daten vorhanden.', startX, innerY + 15)
+            return
           }
 
-          drawRow(row)
-        })
+          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(10)
+          pdf.setTextColor(20, 20, 20)
 
-        y += 10
+          currentRows.forEach((row) => {
+            const prepared = getRowPrepared(row)
+            const rowHeight = getRowHeight(row)
+
+            prepared.forEach((cellLines: string[], i) => {
+              pdf.text(cellLines, startX + i * colWidth + 6, innerY + 15)
+            })
+
+            innerY += rowHeight
+          })
+        }
+      )
+    }
+
+    if (rows.length === 0) {
+      drawTableInsideBox(sectionTitle, [], true)
+      return
+    }
+
+    let remainingRows = [...rows]
+    let firstPage = true
+
+    while (remainingRows.length > 0) {
+      const headerHeight = getHeaderHeight()
+      const availableRowsHeight =
+        pageHeight - margin - y - paddingTop - titleGap - headerHeight - paddingBottom
+
+      let consumedHeight = 0
+      let rowsForThisPage: string[][] = []
+
+      for (const row of remainingRows) {
+        const rowHeight = getRowHeight(row)
+        if (rowsForThisPage.length > 0 && consumedHeight + rowHeight > availableRowsHeight) {
+          break
+        }
+        rowsForThisPage.push(row)
+        consumedHeight += rowHeight
       }
+
+      if (rowsForThisPage.length === 0) {
+        rowsForThisPage = [remainingRows[0]]
+      }
+
+      drawTableInsideBox(sectionTitle, rowsForThisPage, firstPage)
+
+      remainingRows = remainingRows.slice(rowsForThisPage.length)
+      firstPage = false
+    }
+  }
       const title = log?.description?.trim() ? log.description : 'Tagesbericht'
       const projectName = project?.name ?? 'Projekt'
 
@@ -503,43 +528,6 @@ export default function LogDetailsPage() {
       const logoBoxHeight = 52
       const logoX = pageWidth - margin - logoBoxWidth
       const logoY = headerTop
-
-      if (effectiveLogoUrl) {
-        try {
-          const logoImg = new Image()
-          logoImg.src = effectiveLogoUrl
-
-          await new Promise<void>((resolve) => {
-            logoImg.onload = () => resolve()
-            logoImg.onerror = () => resolve()
-          })
-
-          const naturalWidth = logoImg.naturalWidth || 1
-          const naturalHeight = logoImg.naturalHeight || 1
-
-          const scale = Math.min(
-            logoBoxWidth / naturalWidth,
-            logoBoxHeight / naturalHeight
-          )
-
-          const renderWidth = naturalWidth * scale
-          const renderHeight = naturalHeight * scale
-
-          const drawX = logoX + (logoBoxWidth - renderWidth) / 2
-          const drawY = logoY + (logoBoxHeight - renderHeight) / 2
-
-          const logoDataUrl = await imageUrlToDataUrl(effectiveLogoUrl)
-
-          pdf.addImage(
-            logoDataUrl,
-            'PNG',
-            drawX,
-            drawY,
-            renderWidth,
-            renderHeight
-          )
-        } catch {}
-      }
 
       pdf.setFont('helvetica', 'bold')
       pdf.setFontSize(22)
