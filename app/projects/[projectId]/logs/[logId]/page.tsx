@@ -402,6 +402,7 @@ export default function LogDetailsPage() {
         const lineHeight = 12
 
         const drawSectionTitle = () => {
+          if (!sectionTitle) return
           pdf.setFont('helvetica', 'bold')
           pdf.setFontSize(14)
           pdf.setTextColor(25, 25, 25)
@@ -462,8 +463,17 @@ export default function LogDetailsPage() {
           y = margin
         }
 
-        drawSectionTitle()
-        drawHeader()
+        const boxHeightEstimate = 200 // ideiglenes, később finomítjuk
+
+        drawSectionBox(sectionTitle, boxHeightEstimate, (contentStartY) => {
+          y = contentStartY
+
+          drawHeader()
+
+          rows.forEach((row) => {
+            drawRow(row)
+          })
+        })
 
         if (rows.length === 0) {
           pdf.setFont('helvetica', 'normal')
@@ -569,29 +579,43 @@ export default function LogDetailsPage() {
             ])
       )
 
-    addTable(
-      'Besprechungen',
-      ['Thema', 'Termin'],
-      meetings.length === 0
-        ? []
-        : meetings.map((row) => [
-            row.thema || '—',
-            row.termin || '—',
-          ])
-    )
+      drawSectionBox('Besprechungen', 110, (contentStartY) => {
+        const oldY = y
+        y = contentStartY
 
-  addTable(
-    'Vorkommnisse',
-    ['Vorkommnis', 'Erlediger', 'Status', 'Termin'],
-    events.length === 0
-      ? []
-      : events.map((row) => [
-          row.text || '—',
-          row.erlediger || '—',
-          row.status || '—',
-          row.termin || '—',
-        ])
-  )
+        addTable(
+          '',
+          ['Thema', 'Termin'],
+          meetings.length === 0
+            ? []
+            : meetings.map((row) => [
+                row.thema || '—',
+                row.termin || '—',
+              ])
+        )
+
+        y = Math.max(y, oldY + 110)
+      })
+
+      drawSectionBox('Vorkommnisse', 140, (contentStartY) => {
+        const oldY = y
+        y = contentStartY
+
+        addTable(
+          '',
+          ['Vorkommnis', 'Erlediger', 'Status', 'Termin'],
+          events.length === 0
+            ? []
+            : events.map((row) => [
+                row.text || '—',
+                row.erlediger || '—',
+                row.status || '—',
+                row.termin || '—',
+              ])
+        )
+
+        y = Math.max(y, oldY + 140)
+      })
 
       addSectionTitle('Fotos')
 
