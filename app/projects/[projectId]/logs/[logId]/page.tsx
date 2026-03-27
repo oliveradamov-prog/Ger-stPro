@@ -395,111 +395,193 @@ export default function LogDetailsPage() {
       }
 
 
-      const addTable = (sectionTitle: string, headers: string[], rows: string[][]) => {
-        const colWidth = contentWidth / headers.length
-        const headerMinHeight = 24
-        const rowPaddingY = 8
-        const lineHeight = 12
+      const getTableColWidth = (headers: string[]) => contentWidth / headers.length
 
-        const drawSectionTitle = () => {
-          if (!sectionTitle) return
-          pdf.setFont('helvetica', 'bold')
-          pdf.setFontSize(14)
-          pdf.setTextColor(25, 25, 25)
-          pdf.text(sectionTitle, margin, y)
-          y += 18
-        }
+      const getPreparedHeaderLines = (headers: string[], colWidth: number) =>
+        headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
 
-        const getHeaderHeight = () => {
-          const preparedHeaders = headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
-          const maxLines = Math.max(...preparedHeaders.map((x: string[]) => x.length), 1)
-          return Math.max(headerMinHeight, maxLines * lineHeight + rowPaddingY)
-        }
+      const getTableHeaderHeight = (headers: string[], colWidth: number) => {
+        const preparedHeaders = getPreparedHeaderLines(headers, colWidth)
+        const maxLines = Math.max(...preparedHeaders.map((x: string[]) => x.length), 1)
+        return Math.max(24, maxLines * 12 + 8)
+      }
 
-        const drawHeader = () => {
-          const preparedHeaders = headers.map((h) => pdf.splitTextToSize(h, colWidth - 12))
-          const headerHeight = getHeaderHeight()
+      const getPreparedRowLines = (row: string[], colWidth: number) =>
+        row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
 
-          pdf.setFillColor(245, 245, 245)
-          pdf.roundedRect(margin, y, contentWidth, headerHeight, 8, 8, 'F')
+      const getTableRowHeight = (row: string[], colWidth: number) => {
+        const prepared = getPreparedRowLines(row, colWidth)
+        const maxLines = Math.max(...prepared.map((x: string[]) => x.length), 1)
+        return Math.max(24, maxLines * 12 + 10)
+      }
 
-          pdf.setFont('helvetica', 'bold')
-          pdf.setFontSize(10)
-          pdf.setTextColor(60, 60, 60)
+      const drawTableHeaderAt = (
+        headers: string[],
+        colWidth: number,
+        startX: number,
+        startY: number,
+        tableWidth: number
+      ) => {
+        const preparedHeaders = getPreparedHeaderLines(headers, colWidth)
+        const headerHeight = getTableHeaderHeight(headers, colWidth)
 
-          preparedHeaders.forEach((lines: string[], i) => {
-            pdf.text(lines, margin + i * colWidth + 6, y + 15)
-          })
+        pdf.setFillColor(245, 245, 245)
+        pdf.roundedRect(startX, startY, tableWidth, headerHeight, 8, 8, 'F')
 
-          y += headerHeight
-        }
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(10)
+        pdf.setTextColor(60, 60, 60)
 
-        const getRowHeight = (row: string[]) => {
-          const prepared = row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
-          const maxLines = Math.max(...prepared.map((x: string[]) => x.length), 1)
-          return Math.max(24, maxLines * lineHeight + rowPaddingY)
-        }
-
-        const drawRow = (row: string[]) => {
-          const prepared = row.map((cell) => pdf.splitTextToSize(cell || '—', colWidth - 12))
-          const rowHeight = getRowHeight(row)
-
-          pdf.setFont('helvetica', 'normal')
-          pdf.setFontSize(10)
-          pdf.setTextColor(20, 20, 20)
-
-          prepared.forEach((cellLines: string[], i) => {
-            pdf.text(cellLines, margin + i * colWidth + 6, y + 15)
-          })
-
-          y += rowHeight
-        }
-
-        const headerHeight = getHeaderHeight()
-        const firstRowHeight = rows.length > 0 ? getRowHeight(rows[0]) : 24
-
-        if (y + 18 + headerHeight + firstRowHeight > pageHeight - margin) {
-          pdf.addPage()
-          y = margin
-        }
-
-        const boxHeightEstimate = 200 // ideiglenes, később finomítjuk
-
-        drawSectionBox(sectionTitle, boxHeightEstimate, (contentStartY) => {
-          y = contentStartY
-
-          drawHeader()
-
-          rows.forEach((row) => {
-            drawRow(row)
-          })
+        preparedHeaders.forEach((lines: string[], i) => {
+          pdf.text(lines, startX + i * colWidth + 6, startY + 15)
         })
 
+        return headerHeight
+      }
+
+      const drawTableRowAt = (
+        row: string[],
+        colWidth: number,
+        startX: number,
+        startY: number
+      ) => {
+        const prepared = getPreparedRowLines(row, colWidth)
+        const rowHeight = getTableRowHeight(row, colWidth)
+
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(10)
+        pdf.setTextColor(20, 20, 20)
+
+        prepared.forEach((cellLines: string[], i) => {
+          pdf.text(cellLines, startX + i * colWidth + 6, startY + 15)
+        })
+
+        return rowHeight
+      }
+
+      const addSmallTableBox = (
+        sectionTitle: string,
+        headers: string[],
+        rows: string[][]
+      ) => {
+        const paddingX = 14
+        const paddingTop = 14
+        const paddingBottom = 12
+        const titleGap = 18
+
+        const tableWidth = contentWidth - paddingX * 2
+        const colWidth = tableWidth / headers.length
+        const headerHeight = getTableHeaderHeight(headers, colWidth)
+
+        const rowsHeight =
+          rows.length === 0
+            ? 30
+            : rows.reduce((sum, row) => sum + getTableRowHeight(row, colWidth), 0)
+
+        const boxHeight = paddingTop + titleGap + headerHeight + rowsHeight + paddingBottom
+
+        drawSectionBox(sectionTitle, boxHeight, (contentStartY) => {
+          const startX = margin + paddingX
+          let innerY = contentStartY
+
+          const drawnHeaderHeight = drawTableHeaderAt(
+            headers,
+            colWidth,
+            startX,
+            innerY,
+            tableWidth
+          )
+
+          innerY += drawnHeaderHeight
+
+          if (rows.length === 0) {
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(10)
+            pdf.setTextColor(20, 20, 20)
+            pdf.text('Keine Daten vorhanden.', startX, innerY + 15)
+            return
+          }
+
+          rows.forEach((row) => {
+            const rowHeight = drawTableRowAt(row, colWidth, startX, innerY)
+            innerY += rowHeight
+          })
+        })
+      }
+
+      const addPaginatedWorkersTable = (
+        sectionTitle: string,
+        headers: string[],
+        rows: string[][]
+      ) => {
+        const paddingX = 14
+        const paddingTop = 14
+        const paddingBottom = 12
+        const titleGap = 18
+
+        const tableWidth = contentWidth - paddingX * 2
+        const colWidth = tableWidth / headers.length
+        const headerHeight = getTableHeaderHeight(headers, colWidth)
+
         if (rows.length === 0) {
-          pdf.setFont('helvetica', 'normal')
-          pdf.setFontSize(10)
-          pdf.setTextColor(20, 20, 20)
-          pdf.text('Keine Daten vorhanden.', margin, y + 15)
-          y += 30
-          y += 10
+          addSmallTableBox(sectionTitle, headers, [])
           return
         }
 
-        rows.forEach((row) => {
-          const rowHeight = getRowHeight(row)
+        let remainingRows = [...rows]
+        let firstPage = true
 
-          if (y + rowHeight > pageHeight - margin) {
-            pdf.addPage()
-            y = margin
+        while (remainingRows.length > 0) {
+          const titleText = firstPage ? sectionTitle : `${sectionTitle} (Fortsetzung)`
 
-            drawSectionTitle()
-            drawHeader()
+          const availableRowsHeight =
+            pageHeight - margin - y - paddingTop - titleGap - headerHeight - paddingBottom
+
+          let consumedHeight = 0
+          let rowsForThisPage: string[][] = []
+
+          for (const row of remainingRows) {
+            const rowHeight = getTableRowHeight(row, colWidth)
+
+            if (rowsForThisPage.length > 0 && consumedHeight + rowHeight > availableRowsHeight) {
+              break
+            }
+
+            rowsForThisPage.push(row)
+            consumedHeight += rowHeight
           }
 
-          drawRow(row)
-        })
+          if (rowsForThisPage.length === 0) {
+            pdf.addPage()
+            y = margin
+            continue
+          }
 
-        y += 10
+          const boxHeight = paddingTop + titleGap + headerHeight + consumedHeight + paddingBottom
+
+          drawSectionBox(titleText, boxHeight, (contentStartY) => {
+            const startX = margin + paddingX
+            let innerY = contentStartY
+
+            const drawnHeaderHeight = drawTableHeaderAt(
+              headers,
+              colWidth,
+              startX,
+              innerY,
+              tableWidth
+            )
+
+            innerY += drawnHeaderHeight
+
+            rowsForThisPage.forEach((row) => {
+              const rowHeight = drawTableRowAt(row, colWidth, startX, innerY)
+              innerY += rowHeight
+            })
+          })
+
+          remainingRows = remainingRows.slice(rowsForThisPage.length)
+          firstPage = false
+        }
       }
       const title = log?.description?.trim() ? log.description : 'Tagesbericht'
       const projectName = project?.name ?? 'Projekt'
@@ -566,7 +648,7 @@ export default function LogDetailsPage() {
       addTextBlock('Firma', log?.external_company?.trim() || '—')
       addTextBlock('Bauleiternamen', asText(log?.site_managers_names) || '—')
 
-      addTable(
+      addPaginatedWorkersTable(
         'Firmen / Mitarbeiter / Stunden / Zeit',
         ['Firma', 'Mitarbeiter', 'Stunden', 'Zeit'],
         workers.length === 0
@@ -580,7 +662,7 @@ export default function LogDetailsPage() {
       )
 
 
-      addTable(
+      addSmallTableBox(
         'Besprechungen',
         ['Thema', 'Termin'],
         meetings.length === 0
@@ -591,7 +673,7 @@ export default function LogDetailsPage() {
             ])
       )
 
-      addTable(
+      addSmallTableBox(
         'Vorkommnisse',
         ['Vorkommnis', 'Erlediger', 'Status', 'Termin'],
         events.length === 0
