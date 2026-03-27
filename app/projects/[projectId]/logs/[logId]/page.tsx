@@ -532,10 +532,23 @@ export default function LogDetailsPage() {
         let firstPage = true
 
         while (remainingRows.length > 0) {
-          const titleText = firstPage ? sectionTitle : `${sectionTitle} (Fortsetzung)`
-
-          const availableRowsHeight =
+          let availableRowsHeight =
             pageHeight - margin - y - paddingTop - titleGap - headerHeight - paddingBottom
+
+          // Ha a mostani oldalon már túl kevés hely maradt,
+          // ne rakjunk ki csak 1 sort külön dobozba,
+          // hanem kezdjünk inkább új oldalt.
+          const minRowsWanted = Math.min(3, remainingRows.length)
+          const minUsefulHeight = remainingRows
+            .slice(0, minRowsWanted)
+            .reduce((sum, row) => sum + getTableRowHeight(row, colWidth), 0)
+
+          if (availableRowsHeight < minUsefulHeight && y > margin + 20) {
+            pdf.addPage()
+            y = margin
+            availableRowsHeight =
+              pageHeight - margin - y - paddingTop - titleGap - headerHeight - paddingBottom
+          }
 
           let consumedHeight = 0
           let rowsForThisPage: string[][] = []
@@ -558,6 +571,7 @@ export default function LogDetailsPage() {
           }
 
           const boxHeight = paddingTop + titleGap + headerHeight + consumedHeight + paddingBottom
+          const titleText = firstPage ? sectionTitle : `${sectionTitle} (Fortsetzung)`
 
           drawSectionBox(titleText, boxHeight, (contentStartY) => {
             const startX = margin + paddingX
@@ -643,10 +657,41 @@ export default function LogDetailsPage() {
 
       y = headerTop + 74
 
-      addTextBlock('Standort / Baustelle', project?.location || '—')
-      addTextBlock('Client / Auftraggeber', project?.client || '—')
-      addTextBlock('Firma', log?.external_company?.trim() || '—')
-      addTextBlock('Bauleiternamen', asText(log?.site_managers_names) || '—')
+      const addMetaBox = () => {
+        const paddingX = 14
+        const paddingTop = 14
+        const paddingBottom = 12
+        const lineHeight = 22
+
+        const rows = [
+          ['Standort / Baustelle', project?.location || '—'],
+          ['Client / Auftraggeber', project?.client || '—'],
+          ['Firma', log?.external_company?.trim() || '—'],
+          ['Bauleiternamen', asText(log?.site_managers_names) || '—'],
+        ]
+
+        const boxHeight = paddingTop + rows.length * lineHeight + paddingBottom
+
+        drawSectionBox('', boxHeight, (contentStartY) => {
+          let innerY = contentStartY
+
+          rows.forEach(([label, value]) => {
+            pdf.setFont('helvetica', 'bold')
+            pdf.setFontSize(11)
+            pdf.setTextColor(70, 70, 70)
+            pdf.text(`${label}:`, margin + paddingX, innerY)
+
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(12)
+            pdf.setTextColor(20, 20, 20)
+            pdf.text(String(value || '—'), margin + paddingX + 120, innerY)
+
+            innerY += lineHeight
+          })
+        })
+      }
+
+      addMetaBox()
 
       addPaginatedWorkersTable(
         'Firmen / Mitarbeiter / Stunden / Zeit',
