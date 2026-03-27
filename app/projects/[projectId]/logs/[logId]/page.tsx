@@ -500,6 +500,45 @@ export default function LogDetailsPage() {
       const logoX = pageWidth - margin - logoBoxWidth
       const logoY = headerTop
 
+      if (effectiveLogoUrl) {
+        try {
+          const logoImg = new Image()
+          logoImg.src = effectiveLogoUrl
+
+          await new Promise<void>((resolve) => {
+            logoImg.onload = () => resolve()
+            logoImg.onerror = () => resolve()
+          })
+
+          const naturalWidth = logoImg.naturalWidth || 1
+          const naturalHeight = logoImg.naturalHeight || 1
+
+          const scale = Math.min(
+            logoBoxWidth / naturalWidth,
+            logoBoxHeight / naturalHeight
+          )
+
+          const renderWidth = naturalWidth * scale
+          const renderHeight = naturalHeight * scale
+
+          const drawX = logoX + (logoBoxWidth - renderWidth) / 2
+          const drawY = logoY + (logoBoxHeight - renderHeight) / 2
+
+          pdf.addImage(effectiveLogoUrl, 'PNG', drawX, drawY, renderWidth, renderHeight)
+
+          const logoDataUrl = await imageUrlToDataUrl(effectiveLogoUrl)
+
+          pdf.addImage(
+            effectiveLogoUrl,
+            'PNG',
+            drawX,
+            drawY,
+            renderWidth,
+            renderHeight
+          )
+        } catch {}
+      }
+
       pdf.setFont('helvetica', 'bold')
       pdf.setFontSize(22)
       pdf.setTextColor(20, 20, 20)
@@ -559,12 +598,15 @@ export default function LogDetailsPage() {
       if (photos.length === 0) {
         addTextBlock('Fotos', 'Keine Fotos vorhanden.')
       } else {
+        const MAX_PHOTOS = 12
+        const limitedPhotos = photos.slice(0, MAX_PHOTOS)
+
         const photoWidth = (contentWidth - 16) / 2
         const photoHeight = 150
         const captionHeight = 26
 
-        for (let i = 0; i < photos.length; i++) {
-          const p = photos[i]
+        for (let i = 0; i < limitedPhotos.length; i++) {
+          const p = limitedPhotos[i]
           const url = photoUrls[p.path]
           if (!url) continue
 
@@ -578,10 +620,17 @@ export default function LogDetailsPage() {
           const blockY = y
 
           try {
-            const photoDataUrl = await imageUrlToDataUrl(url)
             pdf.setDrawColor(225, 225, 225)
             pdf.roundedRect(x, blockY, photoWidth, photoHeight, 8, 8)
-            pdf.addImage(photoDataUrl, 'JPEG', x + 2, blockY + 2, photoWidth - 4, photoHeight - 4)
+
+            pdf.addImage(
+              url,
+              'JPEG',
+              x + 2,
+              blockY + 2,
+              photoWidth - 4,
+              photoHeight - 4
+            )
           } catch {
             continue
           }
@@ -605,7 +654,7 @@ export default function LogDetailsPage() {
           }
         }
 
-        if (photos.length % 2 === 1) {
+        if (limitedPhotos.length % 2 === 1) {
           y += photoHeight + captionHeight + 18
         }
       }
