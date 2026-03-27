@@ -579,43 +579,30 @@ export default function LogDetailsPage() {
             ])
       )
 
-      drawSectionBox('Besprechungen', 110, (contentStartY) => {
-        const oldY = y
-        y = contentStartY
 
-        addTable(
-          '',
-          ['Thema', 'Termin'],
-          meetings.length === 0
-            ? []
-            : meetings.map((row) => [
-                row.thema || '—',
-                row.termin || '—',
-              ])
-        )
+      addTable(
+        'Besprechungen',
+        ['Thema', 'Termin'],
+        meetings.length === 0
+          ? []
+          : meetings.map((row) => [
+              row.thema || '—',
+              row.termin || '—',
+            ])
+      )
 
-        y = Math.max(y, oldY + 110)
-      })
-
-      drawSectionBox('Vorkommnisse', 140, (contentStartY) => {
-        const oldY = y
-        y = contentStartY
-
-        addTable(
-          '',
-          ['Vorkommnis', 'Erlediger', 'Status', 'Termin'],
-          events.length === 0
-            ? []
-            : events.map((row) => [
-                row.text || '—',
-                row.erlediger || '—',
-                row.status || '—',
-                row.termin || '—',
-              ])
-        )
-
-        y = Math.max(y, oldY + 140)
-      })
+      addTable(
+        'Vorkommnisse',
+        ['Vorkommnis', 'Erlediger', 'Status', 'Termin'],
+        events.length === 0
+          ? []
+          : events.map((row) => [
+              row.text || '—',
+              row.erlediger || '—',
+              row.status || '—',
+              row.termin || '—',
+            ])
+      )
 
       addSectionTitle('Fotos')
 
