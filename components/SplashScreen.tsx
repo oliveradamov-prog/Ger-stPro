@@ -32,7 +32,7 @@ export default function SplashScreen() {
           alt="GerüstPro"
           fill
           style={{
-            objectFit: 'cover',
+            objectFit: 'contain',
             transform: 'scale(1.1)',
             transformOrigin: 'center center',
           }}
