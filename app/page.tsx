@@ -54,7 +54,7 @@ return (
           }}
         >
           <Image
-            src="/gerustpro-logo.png"
+            src="/logo.png"
             alt="GerüstPro Logo"
             fill
             style={{
