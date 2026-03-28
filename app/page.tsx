@@ -57,7 +57,7 @@ return (
             fill
             style={{
               objectFit: 'cover',
-              transform: 'scale(1.16)',
+              transform: 'scale(1.10)',
               transformOrigin: 'center center',
             }}
             priority
