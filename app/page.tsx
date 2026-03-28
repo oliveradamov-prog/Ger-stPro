@@ -40,8 +40,8 @@ return (
       >
         <div
           style={{
-            width: 96,
-            height: 96,
+            width: 120,
+            height: 120,
             borderRadius: 999,
             margin: '0 auto 18px',
             display: 'grid',
@@ -56,10 +56,9 @@ return (
           <Image
             src="/logo.png"
             alt="GerüstPro Logo"
-            width={138}
-            height={138}
+            fill
             style={{
-              objectFit: 'contain',
+              objectFit: 'cover',
             }}
             priority
           />
