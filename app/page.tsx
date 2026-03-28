@@ -56,8 +56,8 @@ return (
           <Image
             src="/logo.png"
             alt="GerüstPro Logo"
-            width={96}
-            height={96}
+            width={120}
+            height={120}
             style={{
               objectFit: 'contain',
             }}
