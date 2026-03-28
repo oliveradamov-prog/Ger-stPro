@@ -44,8 +44,6 @@ return (
             height: 120,
             borderRadius: 999,
             margin: '0 auto 18px',
-            display: 'grid',
-            placeItems: 'center',
             border: '1px solid rgba(255,255,255,.14)',
             background: 'rgba(255,255,255,.05)',
             overflow: 'hidden',
@@ -59,6 +57,8 @@ return (
             fill
             style={{
               objectFit: 'cover',
+              transform: 'scale(1.22)',
+              transformOrigin: 'center center',
             }}
             priority
           />
