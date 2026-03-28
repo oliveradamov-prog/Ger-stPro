@@ -28,12 +28,12 @@ export default function SplashScreen() {
         }}
       >
         <Image
-          src="/gerustpro-logo.png"
+          src="/logo.png"
           alt="GerüstPro"
           fill
           style={{
             objectFit: 'contain',
-            transform: 'scale(2.35) translateY(9px)',
+            transform: 'scale(1.1)',
             transformOrigin: 'center center',
           }}
           priority
