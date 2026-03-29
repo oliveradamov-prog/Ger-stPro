@@ -25,17 +25,41 @@ export default function ProjectsPage() {
       setLoading(true)
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+        useEffect(() => {
+          let cancelled = false
 
-        if (!session) {
-          if (!cancelled) {
-            setLoading(false)
-            window.location.href = '/login'
+          async function loadProjects() {
+            setMsg('')
+            setLoading(true)
+
+            try {
+              const { data, error } = await supabase
+                .from('projects')
+                .select('id, name, location, client')
+                .order('created_at', { ascending: false })
+
+              if (error) throw error
+
+              if (!cancelled) {
+                setProjects((data as Project[]) ?? [])
+              }
+            } catch (e: any) {
+              if (!cancelled) {
+                setMsg(e?.message ?? 'Projekte konnten nicht geladen werden.')
+              }
+            } finally {
+              if (!cancelled) {
+                setLoading(false)
+              }
+            }
           }
-          return
-        }
+
+          loadProjects()
+
+          return () => {
+            cancelled = true
+          }
+        }, [])
 
         const { data, error } = await supabase
           .from('projects')
