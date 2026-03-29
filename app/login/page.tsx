@@ -53,7 +53,6 @@ export default function LoginPage() {
       }
 
       router.replace('/projects')
-      router.refresh()
     } catch (err: any) {
       setMsg(err?.message ?? 'Anmeldung fehlgeschlagen.')
     } finally {
@@ -87,7 +86,7 @@ export default function LoginPage() {
 
     try {
       const trimmedName = fullName.trim()
-      const trimmedEmail = email.trim()
+      const trimmedEmail = email.trim().toLowerCase()
 
       if (!trimmedName) {
         throw new Error('Bitte deinen Namen eingeben.')
@@ -104,6 +103,11 @@ export default function LoginPage() {
       const { data: signUpData, error } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
+        options: {
+          data: {
+            full_name: trimmedName,
+          },
+        },
       })
 
       if (error) throw error
@@ -113,23 +117,30 @@ export default function LoginPage() {
         throw new Error('Account wurde nicht erstellt.')
       }
 
-      let logoUrl: string | null = null
-
-      if (logoFile) {
-        logoUrl = await uploadProfileLogo(user.id, logoFile)
-      }
-
       const { error: profileError } = await supabase.from('profiles').upsert({
         id: user.id,
         full_name: trimmedName,
-        logo_url: logoUrl,
+        logo_url: null,
       })
 
       if (profileError) throw profileError
 
+      if (logoFile) {
+        const logoUrl = await uploadProfileLogo(user.id, logoFile)
+
+        const { error: logoUpdateError } = await supabase.from('profiles').upsert({
+          id: user.id,
+          full_name: trimmedName,
+          logo_url: logoUrl,
+        })
+
+        if (logoUpdateError) throw logoUpdateError
+      }
+
       setMsg('Account erstellt. Jetzt bitte anmelden.')
       setMode('login')
       setPassword('')
+      setLogoFile(null)
     } catch (e: any) {
       setMsg(e?.message ?? 'Registrierung fehlgeschlagen.')
     } finally {
