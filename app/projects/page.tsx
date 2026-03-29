@@ -33,6 +33,21 @@ export default function ProjectsPage() {
             setLoading(true)
 
             try {
+              const {
+                data: { user },
+                error: userError,
+              } = await supabase.auth.getUser()
+
+              if (userError) throw userError
+
+              if (!user) {
+                if (!cancelled) {
+                  setProjects([])
+                  setLoading(false)
+                }
+                return
+              }
+
               const { data, error } = await supabase
                 .from('projects')
                 .select('id, name, location, client')
