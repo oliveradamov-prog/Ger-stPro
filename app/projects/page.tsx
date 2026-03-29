@@ -25,18 +25,6 @@ export default function ProjectsPage() {
       setLoading(true)
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        if (!session) {
-          if (!cancelled) {
-            setLoading(false)
-            window.location.href = '/login'
-          }
-          return
-        }
-
         const { data, error } = await supabase
           .from('projects')
           .select('id, name, location, client')

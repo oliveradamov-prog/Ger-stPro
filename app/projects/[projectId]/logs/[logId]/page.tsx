@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import RequireAuth from '@/components/RequireAuth'
 
 const PHOTOS_BUCKET = process.env.NEXT_PUBLIC_PHOTOS_BUCKET || 'DAILY-LOG-PHOTOS'
 const PHOTOS_TABLE = 'daily_log_photos'
@@ -155,14 +156,6 @@ export default function LogDetailsPage() {
         return
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session) {
-        setLoading(false)
-        return
-      }
 
       try {
         const { data: projectData, error: projectError } = await supabase
@@ -834,6 +827,7 @@ export default function LogDetailsPage() {
   const effectiveLogoUrl = project?.logo_url || profile?.logo_url || ''
 
   return (
+    <RequireAuth>
     <div className="page">
       <div className="topRow">
         <Link className="backLink" href={`/projects/${projectId}`}>
@@ -1413,6 +1407,7 @@ export default function LogDetailsPage() {
           }
       `}</style>
     </div>
+      </RequireAuth>
   )
 }
 
