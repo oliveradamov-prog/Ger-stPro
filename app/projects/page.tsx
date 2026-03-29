@@ -25,56 +25,17 @@ export default function ProjectsPage() {
       setLoading(true)
 
       try {
-        useEffect(() => {
-          let cancelled = false
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
-          async function loadProjects() {
-            setMsg('')
-            setLoading(true)
-
-            try {
-              const {
-                data: { user },
-                error: userError,
-              } = await supabase.auth.getUser()
-
-              if (userError) throw userError
-
-              if (!user) {
-                if (!cancelled) {
-                  setProjects([])
-                  setLoading(false)
-                }
-                return
-              }
-
-              const { data, error } = await supabase
-                .from('projects')
-                .select('id, name, location, client')
-                .order('created_at', { ascending: false })
-
-              if (error) throw error
-
-              if (!cancelled) {
-                setProjects((data as Project[]) ?? [])
-              }
-            } catch (e: any) {
-              if (!cancelled) {
-                setMsg(e?.message ?? 'Projekte konnten nicht geladen werden.')
-              }
-            } finally {
-              if (!cancelled) {
-                setLoading(false)
-              }
-            }
+        if (!session) {
+          if (!cancelled) {
+            setLoading(false)
+            window.location.href = '/login'
           }
-
-          loadProjects()
-
-          return () => {
-            cancelled = true
-          }
-        }, [])
+          return
+        }
 
         const { data, error } = await supabase
           .from('projects')
