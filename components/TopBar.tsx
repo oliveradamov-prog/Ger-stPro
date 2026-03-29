@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -12,6 +12,7 @@ type Profile = {
 
 export default function TopBar() {
   const pathname = usePathname()
+  const router = useRouter()
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [displayName, setDisplayName] = useState('')
