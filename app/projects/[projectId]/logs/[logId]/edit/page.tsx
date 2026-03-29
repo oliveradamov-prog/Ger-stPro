@@ -506,7 +506,6 @@ export default function LogEditPage() {
 
       setMsg('')
       router.push(`/projects/${projectId}/logs/${logId}`)
-      router.refresh()
     } catch (e: any) {
       setMsg(e?.message ?? 'Speichern fehlgeschlagen')
     } finally {
@@ -640,7 +639,6 @@ export default function LogEditPage() {
       }
 
       setPhotos((prev) => [...inserted, ...prev])
-      router.refresh()
     } catch (e: any) {
       setMsg(e?.message ?? 'Upload fehlgeschlagen')
     } finally {
