@@ -12,15 +12,15 @@ export default function RequireAuth({ children }: RequireAuthProps) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const [checking, setChecking] = useState(true)
+  const [checking, setChecking] = useState(false)
   const [allowed, setAllowed] = useState(false)
 
   useEffect(() => {
     let mounted = true
 
     async function run() {
+      setChecking(true)
       try {
-        setChecking(true)
 
         const {
           data: { user },
@@ -85,22 +85,7 @@ export default function RequireAuth({ children }: RequireAuthProps) {
     }
   }, [router, pathname])
 
-  if (checking) {
-    return (
-      <div
-        style={{
-          minHeight: '60vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--text)',
-          fontWeight: 800,
-        }}
-      >
-        Bitte warten...
-      </div>
-    )
-  }
+  if (checking) return null
 
   if (!allowed) return null
 
