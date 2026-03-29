@@ -28,6 +28,8 @@ export default function TopBar() {
 
     async function loadSessionAndProfile() {
       try {
+        setLoadingUser(true)
+
         const {
           data: { user },
         } = await supabase.auth.getUser()
@@ -92,7 +94,9 @@ export default function TopBar() {
   async function logout() {
     await supabase.auth.signOut()
     setMenuOpen(false)
-    window.location.href = '/login'
+    setDisplayName('')
+    setLoadingUser(false)
+    router.replace('/login')
   }
 
   return (
