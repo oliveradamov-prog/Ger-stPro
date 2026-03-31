@@ -428,29 +428,61 @@ export default function LogEditPage() {
       if (workers && workers.length > 0) {
         console.log('UPSERT WORKERS')
 
-        const { error: workersError } = await supabase
-          .from('daily_log_workers')
-        .upsert(
-          workers.map((w, index) => ({
-            log_id: logId,
-            company: w.company || null,
-            name: w.name || '',
-            hours:
-              w.hours === '' || w.hours == null
-                ? null
-                : Number(String(w.hours).replace(',', '.')),
-            time_range: w.time_range || null,
-            sort_order: index,
-          }))
+        const deleteRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_log_workers?log_id=eq.${logId}`,
+          {
+            method: 'DELETE',
+            headers: {
+              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              'Content-Type': 'application/json',
+            },
+          }
         )
 
-        console.log('AFTER WORKERS AWAIT')
+        console.log('WORKERS DELETE STATUS', deleteRes.status)
 
-        if (workersError) {
-          console.error('WORKERS ERROR:', workersError)
-          throw workersError
+        if (!deleteRes.ok) {
+          const deleteText = await deleteRes.text()
+          throw new Error(`WORKERS DELETE FAILED: ${deleteRes.status} ${deleteText}`)
         }
 
+        const workerRows = workers.map((w, index) => ({
+          log_id: logId,
+          company: w.company || null,
+          name: w.name || '',
+          hours:
+            w.hours === '' || w.hours == null
+              ? null
+              : Number(String(w.hours).replace(',', '.')),
+          time_range: w.time_range || null,
+          sort_order: index,
+        }))
+
+        console.log('WORKERS INSERT PAYLOAD', workerRows)
+
+        const insertRes = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_log_workers`,
+          {
+            method: 'POST',
+            headers: {
+              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+              'Content-Type': 'application/json',
+              Prefer: 'return=representation',
+            },
+            body: JSON.stringify(workerRows),
+          }
+        )
+
+        console.log('WORKERS INSERT STATUS', insertRes.status)
+
+        const insertText = await insertRes.text()
+        console.log('WORKERS INSERT RESPONSE', insertText)
+
+        if (!insertRes.ok) {
+          throw new Error(`WORKERS INSERT FAILED: ${insertRes.status} ${insertText}`)
+        }
+
+        console.log('AFTER WORKERS AWAIT')
         console.log('WORKERS OK')
       }
 
