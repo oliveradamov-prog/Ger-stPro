@@ -445,31 +445,14 @@ export default function LogEditPage() {
             }))
           )
 
+        console.log('AFTER WORKERS AWAIT')
+
         if (workersError) {
           console.error('WORKERS ERROR:', workersError)
           throw workersError
         }
-      }
 
-      // ===== MEETINGS =====
-      if (meetings && meetings.length > 0) {
-        console.log('UPSERT MEETINGS')
-
-        const { error: meetingsError } = await supabase
-          .from('daily_log_meetings')
-          .upsert(
-            meetings.map((m) => ({
-              id: m.id,
-              log_id: logId,
-              thema: m.thema,
-              termin: m.termin,
-            }))
-          )
-
-        if (meetingsError) {
-          console.error('MEETINGS ERROR:', meetingsError)
-          throw meetingsError
-        }
+        console.log('WORKERS OK')
       }
 
       // ===== EVENTS =====
