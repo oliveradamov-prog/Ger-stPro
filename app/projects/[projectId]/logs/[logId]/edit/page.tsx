@@ -381,6 +381,18 @@ export default function LogEditPage() {
       console.log('SAVE START')
       console.log('SKIP auth.getUser in save')
 
+      console.log('MAIN UPDATE PAYLOAD', {
+        log_date: form.log_date,
+        description: form.description,
+        work_description: form.work_description,
+        remarks: form.remarks,
+        external_company: form.external_company,
+        workers_count: workers.map((w) => w.name.trim()).filter(Boolean).length,
+        site_managers_count: toTextArray(form.site_managers_names).length,
+        workers_names: workers.map((w) => w.name.trim()).filter(Boolean),
+        site_managers_names: toTextArray(form.site_managers_names),
+      })
+
       // ===== MAIN UPDATE =====
       const { error: updateError } = await supabase
         .from('daily_logs')
@@ -397,6 +409,8 @@ export default function LogEditPage() {
         })
         .eq('id', logId)
         .eq('project_id', projectId)
+      
+        console.log('AFTER MAIN UPDATE AWAIT')
 
       if (updateError) {
         console.error('UPDATE ERROR:', updateError)
