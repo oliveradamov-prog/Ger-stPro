@@ -381,16 +381,6 @@ export default function LogEditPage() {
 
       console.log('SAVE START')
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session?.access_token) {
-        throw new Error('Keine Session / access token gefunden.')
-      }
-
-      console.log('SESSION TOKEN OK')
-
       console.log('MAIN UPDATE PAYLOAD', {
         log_date: form.log_date,
         description: form.description,
@@ -410,7 +400,6 @@ export default function LogEditPage() {
           method: 'PATCH',
           headers: {
             apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
             Prefer: 'return=representation',
           },
