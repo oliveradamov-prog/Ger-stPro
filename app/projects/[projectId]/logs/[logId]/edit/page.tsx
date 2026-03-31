@@ -379,7 +379,16 @@ export default function LogEditPage() {
       setSaving(true)
 
       console.log('SAVE START')
-      console.log('SKIP auth.getUser in save')
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) throw userError
+      if (!user) throw new Error('Kein Benutzer gefunden.')
+
+      console.log('USER OK:', user.id)
 
       console.log('MAIN UPDATE PAYLOAD', {
         log_date: form.log_date,
