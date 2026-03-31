@@ -398,7 +398,7 @@ export default function LogEditPage() {
       console.log('PROJECT ID:', projectId)
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_logs?id=eq.${logId}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_logs?id=eq.${logId}&project_id=eq.${projectId}`
         {
           method: 'PATCH',
           headers: {
