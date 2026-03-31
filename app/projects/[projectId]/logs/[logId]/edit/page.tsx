@@ -424,10 +424,13 @@ export default function LogEditPage() {
             workers.map((w, index) => ({
               id: w.id,
               log_id: logId,
-              company: w.company,
-              name: w.name,
-              hours: w.hours,
-              time_range: w.time_range,
+              company: w.company || null,
+              name: w.name || '',
+              hours:
+                w.hours === '' || w.hours == null
+                  ? null
+                  : Number(String(w.hours).replace(',', '.')),
+              time_range: w.time_range || null,
               sort_order: index,
             }))
           )
