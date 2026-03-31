@@ -394,6 +394,9 @@ export default function LogEditPage() {
       })
 
       // ===== MAIN UPDATE =====
+      console.log('LOG ID:', logId)
+      console.log('PROJECT ID:', projectId)
+
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_logs?id=eq.${logId}`,
         {
