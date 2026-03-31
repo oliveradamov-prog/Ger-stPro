@@ -430,20 +430,19 @@ export default function LogEditPage() {
 
         const { error: workersError } = await supabase
           .from('daily_log_workers')
-          .upsert(
-            workers.map((w, index) => ({
-              id: w.id,
-              log_id: logId,
-              company: w.company || null,
-              name: w.name || '',
-              hours:
-                w.hours === '' || w.hours == null
-                  ? null
-                  : Number(String(w.hours).replace(',', '.')),
-              time_range: w.time_range || null,
-              sort_order: index,
-            }))
-          )
+        .upsert(
+          workers.map((w, index) => ({
+            log_id: logId,
+            company: w.company || null,
+            name: w.name || '',
+            hours:
+              w.hours === '' || w.hours == null
+                ? null
+                : Number(String(w.hours).replace(',', '.')),
+            time_range: w.time_range || null,
+            sort_order: index,
+          }))
+        )
 
         console.log('AFTER WORKERS AWAIT')
 
