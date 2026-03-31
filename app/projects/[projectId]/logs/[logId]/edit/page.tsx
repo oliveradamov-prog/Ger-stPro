@@ -415,6 +415,8 @@ export default function LogEditPage() {
       console.log('MAIN UPDATE OK')
 
       // ===== WORKERS =====
+      if (workers && workers.length > 0) {
+        console.log('UPSERT WORKERS')
 
         const { error: workersError } = await supabase
           .from('daily_log_workers')
@@ -1144,7 +1146,7 @@ export default function LogEditPage() {
 
         .workArea{
           min-height:140px;
-          max-height:260px;
+          max-height:520px;
           overflow:auto;
         }
 
