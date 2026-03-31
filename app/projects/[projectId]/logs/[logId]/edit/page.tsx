@@ -374,140 +374,123 @@ export default function LogEditPage() {
   }
 
   async function save() {
-    setMsg('')
-    setSaving(true)
-
     try {
-      if (!projectId || !logId) throw new Error('projectId/logId fehlt')
-      if (!form.log_date) throw new Error('Bitte Datum auswählen.')
-      if (!form.description.trim()) throw new Error('Bitte Titel eingeben.')
+      setMsg('')
+      setSaving(true)
+
+      console.log('SAVE START')
 
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser()
 
-      if (!user) throw new Error('Nicht eingeloggt.')
+      if (userError) throw userError
+      if (!user) throw new Error('Kein Benutzer gefunden.')
 
-      const cleanedWorkers = workers
-        .map((row, index) => ({
-          id: row.id,
-          company: row.company.trim() || null,
-          name: row.name.trim(),
-          hours: row.hours.trim(),
-          time_range: row.time_range.trim() || null,
-          sort_order: index + 1,
-        }))
-        .filter((row) => row.name)
+      console.log('USER OK:', user.id)
 
-      const workerNames = cleanedWorkers.map((row) => row.name)
-      const managerArr = toTextArray(form.site_managers_names)
-
-      const cleanedMeetings = meetings
-        .map((row) => ({
-          id: row.id,
-          thema: row.thema.trim() || null,
-          termin: row.termin.trim() || null,
-        }))
-        .filter((row) => row.thema || row.termin)
-
-      const cleanedEvents = events
-        .map((row) => ({
-          id: row.id,
-          text: row.text.trim() || null,
-          erlediger: row.erlediger.trim() || null,
-          status: row.status.trim() || null,
-          termin: row.termin.trim() || null,
-        }))
-        .filter((row) => row.text || row.erlediger || row.status || row.termin)
-
-      const payload: any = {
-        log_date: form.log_date,
-        description: form.description.trim(),
-        work_description: form.work_description.trim() || '',
-        remarks: form.remarks.trim() || null,
-        external_company: form.external_company.trim() || null,
-        workers_names: workerNames,
-        site_managers_names: managerArr,
-        workers_count: workerNames.length,
-        site_managers_count: managerArr.length,
-      }
-
+      // ===== MAIN UPDATE =====
       const { error: updateError } = await supabase
         .from('daily_logs')
-        .update(payload)
+        .update({
+          log_date,
+          description,
+          work_description,
+          remarks,
+          external_company,
+          workers_count,
+          site_managers_count,
+          workers_names,
+          site_managers_names,
+        })
         .eq('id', logId)
+        .eq('project_id', projectId)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('UPDATE ERROR:', updateError)
+        throw updateError
+      }
 
-      const { error: deleteWorkersError } = await supabase
-        .from('daily_log_workers')
-        .delete()
-        .eq('log_id', logId)
-      if (deleteWorkersError) throw deleteWorkersError
+      console.log('MAIN UPDATE OK')
 
-      if (cleanedWorkers.length > 0) {
-        const workerPayload = cleanedWorkers.map((row, index) => ({
-          log_id: logId,
-          company: row.company,
-          name: row.name,
-          hours: row.hours ? Number(row.hours.replace(',', '.')) : null,
-          time_range: row.time_range,
-          sort_order: index
-        }))
+      // ===== WORKERS =====
+      if (workers && workers.length > 0) {
+        console.log('UPSERT WORKERS')
 
-        const { error: workerInsertError } = await supabase
+        const { error: workersError } = await supabase
           .from('daily_log_workers')
-          .insert(workerPayload)
+          .upsert(
+            workers.map((w, index) => ({
+              id: w.id,
+              log_id: logId,
+              company: w.company,
+              name: w.name,
+              hours: w.hours,
+              time_range: w.time_range,
+              sort_order: index,
+            }))
+          )
 
-        if (workerInsertError) throw workerInsertError
+        if (workersError) {
+          console.error('WORKERS ERROR:', workersError)
+          throw workersError
+        }
       }
 
-      const { error: deleteMeetingsError } = await supabase
-        .from('daily_log_meetings')
-        .delete()
-        .eq('log_id', logId)
-      if (deleteMeetingsError) throw deleteMeetingsError
+      // ===== MEETINGS =====
+      if (meetings && meetings.length > 0) {
+        console.log('UPSERT MEETINGS')
 
-      if (cleanedMeetings.length > 0) {
-        const meetingPayload = cleanedMeetings.map((row) => ({
-          log_id: logId,
-          thema: row.thema,
-          termin: row.termin,
-        }))
-
-        const { error: meetingInsertError } = await supabase
+        const { error: meetingsError } = await supabase
           .from('daily_log_meetings')
-          .insert(meetingPayload)
+          .upsert(
+            meetings.map((m) => ({
+              id: m.id,
+              log_id: logId,
+              thema: m.thema,
+              termin: m.termin,
+            }))
+          )
 
-        if (meetingInsertError) throw meetingInsertError
+        if (meetingsError) {
+          console.error('MEETINGS ERROR:', meetingsError)
+          throw meetingsError
+        }
       }
 
-      const { error: deleteEventsError } = await supabase
-        .from('daily_log_events')
-        .delete()
-        .eq('log_id', logId)
-      if (deleteEventsError) throw deleteEventsError
+      // ===== EVENTS =====
+      if (events && events.length > 0) {
+        console.log('UPSERT EVENTS')
 
-      if (cleanedEvents.length > 0) {
-        const eventPayload = cleanedEvents.map((row) => ({
-          log_id: logId,
-          text: row.text,
-          erlediger: row.erlediger,
-          status: row.status,
-          termin: row.termin,
-        }))
-
-        const { error: eventInsertError } = await supabase
+        const { error: eventsError } = await supabase
           .from('daily_log_events')
-          .insert(eventPayload)
+          .upsert(
+            events.map((e) => ({
+              id: e.id,
+              log_id: logId,
+              text: e.text,
+              erlediger: e.erlediger,
+              status: e.status,
+              termin: e.termin,
+            }))
+          )
 
-        if (eventInsertError) throw eventInsertError
+        if (eventsError) {
+          console.error('EVENTS ERROR:', eventsError)
+          throw eventsError
+        }
       }
 
-      setMsg('')
+      console.log('SAVE SUCCESS')
+
+      // ✅ siker után vissza
       router.push(`/projects/${projectId}/logs/${logId}`)
+
     } catch (e: any) {
-      setMsg(e?.message ?? 'Speichern fehlgeschlagen')
+      console.error('SAVE FAILED:', e)
+
+      setMsg(e?.message ?? 'Speichern fehlgeschlagen.')
     } finally {
       setSaving(false)
     }
