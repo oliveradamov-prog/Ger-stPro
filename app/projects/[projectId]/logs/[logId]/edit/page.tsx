@@ -394,22 +394,32 @@ export default function LogEditPage() {
       })
 
       // ===== MAIN UPDATE =====
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_logs?id=eq.${logId}&project_id=eq.${projectId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation',
+          },
+          body: JSON.stringify({
+            description: form.description,
+          }),
+        }
+      )
 
-      const { data, error: updateError } = await supabase
-      .from('daily_logs')
-      .update({
-        description: form.description
-      })
-      .eq('id', logId)
-      .select('id')
+      console.log('RAW FETCH STATUS', res.status)
 
-      console.log('AFTER MAIN UPDATE AWAIT')
+      const responseText = await res.text()
+      console.log('RAW FETCH RESPONSE', responseText)
 
-      if (updateError) {
-        console.error('UPDATE ERROR:', updateError)
-        throw updateError
+      if (!res.ok) {
+        throw new Error(`RAW UPDATE FAILED: ${res.status} ${responseText}`)
       }
 
+      console.log('AFTER MAIN UPDATE AWAIT')
       console.log('MAIN UPDATE OK')
 
       // ===== WORKERS =====
