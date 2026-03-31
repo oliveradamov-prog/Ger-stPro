@@ -375,6 +375,7 @@ export default function LogEditPage() {
 
   async function save() {
     try {
+      alert('SAVE CLICKED')
       setMsg('')
       setSaving(true)
 
@@ -399,7 +400,7 @@ export default function LogEditPage() {
       .update({
         description: form.description
       })
-      .eq('id', logId)
+      .match({ id: logId, project_id: projectId })
       .select()
       .single()
 
