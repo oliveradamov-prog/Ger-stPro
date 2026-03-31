@@ -381,6 +381,16 @@ export default function LogEditPage() {
 
       console.log('SAVE START')
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('Keine Session / access token gefunden.')
+      }
+
+      console.log('SESSION TOKEN OK')
+
       console.log('MAIN UPDATE PAYLOAD', {
         log_date: form.log_date,
         description: form.description,
@@ -395,7 +405,7 @@ export default function LogEditPage() {
 
       // ===== MAIN UPDATE =====
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_logs?id=eq.${logId}&project_id=eq.${projectId}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_logs?id=eq.${logId}`,
         {
           method: 'PATCH',
           headers: {
