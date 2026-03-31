@@ -400,9 +400,8 @@ export default function LogEditPage() {
       .update({
         description: form.description
       })
-      .match({ id: logId, project_id: projectId })
-      .select()
-      .single()
+      .eq('id', logId)
+      .select('id')
 
       console.log('AFTER MAIN UPDATE AWAIT')
 
