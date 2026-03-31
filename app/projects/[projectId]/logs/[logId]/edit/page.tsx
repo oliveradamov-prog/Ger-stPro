@@ -394,24 +394,12 @@ export default function LogEditPage() {
 
       // ===== MAIN UPDATE =====
       const updatePromise = supabase
-        .from('daily_logs')
-        .update({
-          log_date: form.log_date,
-          description: form.description,
-          work_description: form.work_description,
-          remarks: form.remarks,
-          external_company: form.external_company,
-          workers_count: workers.map((w) => w.name.trim()).filter(Boolean).length,
-          site_managers_count: toTextArray(form.site_managers_names).length,
-          workers_names: workers.map((w) => w.name.trim()).filter(Boolean),
-          site_managers_names: toTextArray(form.site_managers_names),
-        })
-        .eq('id', logId)
-        .eq('project_id', projectId)
-
-      const updateTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('daily_logs update timeout after 10s')), 10000)
-      )
+      .from('daily_logs')
+      .update({
+        description: form.description
+      })
+      .eq('id', logId)
+      .eq('project_id', projectId)
 
       const { error: updateError } = await Promise.race([
         updatePromise,
