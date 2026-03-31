@@ -487,17 +487,18 @@ export default function LogEditPage() {
 
       console.log('SAVE SUCCESS')
 
-      // ✅ siker után vissza
-      router.push(`/projects/${projectId}/logs/${logId}`)
+      setMsg('Gespeichert!')
+      setSaving(false)
+      return
 
-    } catch (e: any) {
+      } catch (e: any) {
       console.error('SAVE FAILED:', e)
 
       setMsg(e?.message ?? 'Speichern fehlgeschlagen.')
-    } finally {
+      } finally {
       setSaving(false)
-    }
-  }
+      }
+      }
 
   async function compressImage(file: File, maxBytes = 1024 * 1024): Promise<File> {
     if (!file.type.startsWith('image/')) return file
