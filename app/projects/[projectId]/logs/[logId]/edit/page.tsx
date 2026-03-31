@@ -393,15 +393,15 @@ export default function LogEditPage() {
       })
 
       // ===== MAIN UPDATE =====
-      const updatePromise = supabase
+
+      const { data, error: updateError } = await supabase
       .from('daily_logs')
       .update({
         description: form.description
       })
       .eq('id', logId)
-      .eq('project_id', projectId)
-
-      const { error: updateError } = await updatePromise
+      .select()
+      .single()
 
       console.log('AFTER MAIN UPDATE AWAIT')
 
