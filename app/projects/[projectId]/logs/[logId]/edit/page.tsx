@@ -415,8 +415,6 @@ export default function LogEditPage() {
       console.log('MAIN UPDATE OK')
 
       // ===== WORKERS =====
-      if (workers && workers.length > 0) {
-        console.log('UPSERT WORKERS')
 
         const { error: workersError } = await supabase
           .from('daily_log_workers')
