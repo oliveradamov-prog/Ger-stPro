@@ -380,16 +380,6 @@ export default function LogEditPage() {
 
       console.log('SAVE START')
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError) throw userError
-      if (!user) throw new Error('Kein Benutzer gefunden.')
-
-      console.log('USER OK:', user.id)
-
       console.log('MAIN UPDATE PAYLOAD', {
         log_date: form.log_date,
         description: form.description,
@@ -403,7 +393,7 @@ export default function LogEditPage() {
       })
 
       // ===== MAIN UPDATE =====
-      const { error: updateError } = await supabase
+      const updatePromise = supabase
         .from('daily_logs')
         .update({
           log_date: form.log_date,
@@ -418,8 +408,17 @@ export default function LogEditPage() {
         })
         .eq('id', logId)
         .eq('project_id', projectId)
-      
-        console.log('AFTER MAIN UPDATE AWAIT')
+
+      const updateTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('daily_logs update timeout after 10s')), 10000)
+      )
+
+      const { error: updateError } = await Promise.race([
+        updatePromise,
+        updateTimeout,
+      ]) as Awaited<typeof updatePromise>
+
+      console.log('AFTER MAIN UPDATE AWAIT')
 
       if (updateError) {
         console.error('UPDATE ERROR:', updateError)
