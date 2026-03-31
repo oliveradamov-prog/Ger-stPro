@@ -401,10 +401,7 @@ export default function LogEditPage() {
       .eq('id', logId)
       .eq('project_id', projectId)
 
-      const { error: updateError } = await Promise.race([
-        updatePromise,
-        updateTimeout,
-      ]) as Awaited<typeof updatePromise>
+      const { error: updateError } = await updatePromise
 
       console.log('AFTER MAIN UPDATE AWAIT')
 
