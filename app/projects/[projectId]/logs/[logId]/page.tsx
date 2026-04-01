@@ -720,18 +720,25 @@ export default function LogDetailsPage() {
             ])
       )
 
-      addSmallTableBox(
-        'Vorkommnisse',
-        ['Vorkommnis', 'Erlediger', 'Status', 'Termin'],
-        events.length === 0
-          ? []
-          : events.map((row) => [
-              row.text || '—',
+      addSectionTitle('Vorkommnisse')
+
+      if (events.length === 0) {
+        addTextBlock('Vorkommnisse', 'Keine Vorkommnisse vorhanden.')
+      } else {
+        for (const row of events) {
+          addTextBlock('Vorkommnis', row.text?.trim() || '—')
+
+          addSmallTableBox(
+            '',
+            ['Erlediger', 'Status', 'Termin'],
+            [[
               row.erlediger || '—',
               row.status || '—',
               row.termin || '—',
-            ])
-      )
+            ]]
+          )
+        }
+      }
 
       addSectionTitle('Fotos')
 
@@ -1193,6 +1200,8 @@ export default function LogDetailsPage() {
           font-weight:950;
           white-space:pre-wrap;
           min-width:0;
+          overflow-wrap:anywhere;
+          word-break:break-word;
         }
 
         .workDescription{
