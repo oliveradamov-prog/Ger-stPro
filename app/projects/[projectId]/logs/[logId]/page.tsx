@@ -342,6 +342,10 @@ export default function LogDetailsPage() {
         const lineHeight = 16
 
         const textWidth = contentWidth - paddingX * 2
+
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(12)
+
         const lines = pdf.splitTextToSize(value || '—', textWidth)
 
         let remainingLines = [...lines]
