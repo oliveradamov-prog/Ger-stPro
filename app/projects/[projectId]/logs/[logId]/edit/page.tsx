@@ -380,6 +380,48 @@ export default function LogEditPage() {
       setSaving(true)
 
       console.log('SAVE START')
+      console.log('LOG ID:', logId)
+      console.log('PROJECT ID:', projectId)
+
+      const cleanedWorkers = workers
+        .map((w, index) => ({
+          log_id: logId,
+          company: w.company?.trim() || null,
+          name: w.name?.trim() || '',
+          hours:
+            w.hours === '' || w.hours == null
+              ? null
+              : Number(String(w.hours).replace(',', '.')),
+          time_range: w.time_range?.trim() || null,
+          sort_order: index,
+        }))
+        .filter((w) => w.company || w.name || w.hours != null || w.time_range)
+
+      const cleanedMeetings = meetings
+        .map((m) => ({
+          id: m.id,
+          log_id: logId,
+          thema: m.thema?.trim() || '',
+          termin: m.termin?.trim() || '',
+        }))
+        .filter((m) => m.thema || m.termin)
+
+      const cleanedEvents = events
+        .map((e) => ({
+          id: e.id,
+          log_id: logId,
+          text: e.text?.trim() || '',
+          erlediger: e.erlediger?.trim() || '',
+          status: e.status?.trim() || '',
+          termin: e.termin?.trim() || '',
+        }))
+        .filter((e) => e.text || e.erlediger || e.status || e.termin)
+
+      const workersNames = cleanedWorkers
+        .map((w) => w.name)
+        .filter(Boolean)
+
+      const siteManagersNames = toTextArray(form.site_managers_names)
 
       console.log('MAIN UPDATE PAYLOAD', {
         log_date: form.log_date,
@@ -387,142 +429,136 @@ export default function LogEditPage() {
         work_description: form.work_description,
         remarks: form.remarks,
         external_company: form.external_company,
-        workers_count: workers.map((w) => w.name.trim()).filter(Boolean).length,
-        site_managers_count: toTextArray(form.site_managers_names).length,
-        workers_names: workers.map((w) => w.name.trim()).filter(Boolean),
-        site_managers_names: toTextArray(form.site_managers_names),
+        workers_count: workersNames.length,
+        site_managers_count: siteManagersNames.length,
+        workers_names: workersNames,
+        site_managers_names: siteManagersNames,
       })
 
       // ===== MAIN UPDATE =====
-      console.log('LOG ID:', logId)
-      console.log('PROJECT ID:', projectId)
+      const { error: logError } = await supabase
+        .from('daily_logs')
+        .update({
+          log_date: form.log_date,
+          description: form.description,
+          work_description: form.work_description,
+          remarks: form.remarks,
+          external_company: form.external_company,
+          workers_count: workersNames.length,
+          site_managers_count: siteManagersNames.length,
+          workers_names: workersNames,
+          site_managers_names: siteManagersNames,
+        })
+        .eq('id', logId)
+        .eq('project_id', projectId)
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_logs?id=eq.${logId}&project_id=eq.${projectId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
-          },
-          body: JSON.stringify({
-            description: form.description,
-          }),
-        }
-      )
-
-      console.log('RAW FETCH STATUS', res.status)
-
-      const responseText = await res.text()
-      console.log('RAW FETCH RESPONSE', responseText)
-
-      if (!res.ok) {
-        throw new Error(`RAW UPDATE FAILED: ${res.status} ${responseText}`)
+      if (logError) {
+        console.error('MAIN UPDATE ERROR:', logError)
+        throw logError
       }
 
-      console.log('AFTER MAIN UPDATE AWAIT')
       console.log('MAIN UPDATE OK')
 
       // ===== WORKERS =====
-      if (workers && workers.length > 0) {
-        console.log('UPSERT WORKERS')
+      console.log('UPSERT WORKERS')
 
-        const deleteRes = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_log_workers?log_id=eq.${logId}`,
-          {
-            method: 'DELETE',
-            headers: {
-              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-              'Content-Type': 'application/json',
-            },
-          }
-        )
+      const { error: deleteWorkersError } = await supabase
+        .from('daily_log_workers')
+        .delete()
+        .eq('log_id', logId)
 
-        console.log('WORKERS DELETE STATUS', deleteRes.status)
-
-        if (!deleteRes.ok) {
-          const deleteText = await deleteRes.text()
-          throw new Error(`WORKERS DELETE FAILED: ${deleteRes.status} ${deleteText}`)
-        }
-
-        const workerRows = workers.map((w, index) => ({
-          log_id: logId,
-          company: w.company || null,
-          name: w.name || '',
-          hours:
-            w.hours === '' || w.hours == null
-              ? null
-              : Number(String(w.hours).replace(',', '.')),
-          time_range: w.time_range || null,
-          sort_order: index,
-        }))
-
-        console.log('WORKERS INSERT PAYLOAD', workerRows)
-
-        const insertRes = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_log_workers`,
-          {
-            method: 'POST',
-            headers: {
-              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-              'Content-Type': 'application/json',
-              Prefer: 'return=representation',
-            },
-            body: JSON.stringify(workerRows),
-          }
-        )
-
-        console.log('WORKERS INSERT STATUS', insertRes.status)
-
-        const insertText = await insertRes.text()
-        console.log('WORKERS INSERT RESPONSE', insertText)
-
-        if (!insertRes.ok) {
-          throw new Error(`WORKERS INSERT FAILED: ${insertRes.status} ${insertText}`)
-        }
-
-        console.log('AFTER WORKERS AWAIT')
-        console.log('WORKERS OK')
+      if (deleteWorkersError) {
+        console.error('WORKERS DELETE ERROR:', deleteWorkersError)
+        throw deleteWorkersError
       }
+
+      console.log('WORKERS DELETE OK')
+
+      if (cleanedWorkers.length > 0) {
+        console.log('WORKERS INSERT PAYLOAD', cleanedWorkers)
+
+        const { error: insertWorkersError } = await supabase
+          .from('daily_log_workers')
+          .insert(cleanedWorkers)
+
+        if (insertWorkersError) {
+          console.error('WORKERS INSERT ERROR:', insertWorkersError)
+          throw insertWorkersError
+        }
+      }
+
+      console.log('WORKERS OK')
+
+      // ===== MEETINGS =====
+      console.log('UPSERT MEETINGS')
+
+      const { error: deleteMeetingsError } = await supabase
+        .from('daily_log_meetings')
+        .delete()
+        .eq('log_id', logId)
+
+      if (deleteMeetingsError) {
+        console.error('MEETINGS DELETE ERROR:', deleteMeetingsError)
+        throw deleteMeetingsError
+      }
+
+      console.log('MEETINGS DELETE OK')
+
+      if (cleanedMeetings.length > 0) {
+        console.log('MEETINGS INSERT PAYLOAD', cleanedMeetings)
+
+        const { error: insertMeetingsError } = await supabase
+          .from('daily_log_meetings')
+          .insert(cleanedMeetings)
+
+        if (insertMeetingsError) {
+          console.error('MEETINGS INSERT ERROR:', insertMeetingsError)
+          throw insertMeetingsError
+        }
+      }
+
+      console.log('MEETINGS OK')
 
       // ===== EVENTS =====
-      if (events && events.length > 0) {
-        console.log('UPSERT EVENTS')
+      console.log('UPSERT EVENTS')
 
-        const { error: eventsError } = await supabase
+      const { error: deleteEventsError } = await supabase
+        .from('daily_log_events')
+        .delete()
+        .eq('log_id', logId)
+
+      if (deleteEventsError) {
+        console.error('EVENTS DELETE ERROR:', deleteEventsError)
+        throw deleteEventsError
+      }
+
+      console.log('EVENTS DELETE OK')
+
+      if (cleanedEvents.length > 0) {
+        console.log('EVENTS INSERT PAYLOAD', cleanedEvents)
+
+        const { error: insertEventsError } = await supabase
           .from('daily_log_events')
-          .upsert(
-            events.map((e) => ({
-              id: e.id,
-              log_id: logId,
-              text: e.text,
-              erlediger: e.erlediger,
-              status: e.status,
-              termin: e.termin,
-            }))
-          )
+          .insert(cleanedEvents)
 
-        if (eventsError) {
-          console.error('EVENTS ERROR:', eventsError)
-          throw eventsError
+        if (insertEventsError) {
+          console.error('EVENTS INSERT ERROR:', insertEventsError)
+          throw insertEventsError
         }
       }
 
+      console.log('EVENTS OK')
       console.log('SAVE SUCCESS')
 
       setMsg('Gespeichert!')
-      setSaving(false)
-      return
-
-      } catch (e: any) {
+      router.push(`/projects/${projectId}/logs/${logId}`)
+    } catch (e: any) {
       console.error('SAVE FAILED:', e)
-
       setMsg(e?.message ?? 'Speichern fehlgeschlagen.')
-      } finally {
+    } finally {
       setSaving(false)
-      }
-      }
+    }
+  }
 
   async function compressImage(file: File, maxBytes = 1024 * 1024): Promise<File> {
     if (!file.type.startsWith('image/')) return file
