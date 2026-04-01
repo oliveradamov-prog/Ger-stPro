@@ -69,31 +69,39 @@ function asString(v: any) {
   if (v == null) return ''
   if (Array.isArray(v)) return v.join(', ')
   return String(v)
-}
 
-function toTextArray(v: any): string[] {
-  if (Array.isArray(v)) return v.map(String).map((s) => s.trim()).filter(Boolean)
 
-  const s = String(v ?? '').trim()
-  if (!s) return []
 
-  const parts = s
-    .split(/[,;\n]+/g)
-    .map((x) => x.trim())
-    .filter(Boolean)
+  function toTextArray(v: any): string[] {
+    if (Array.isArray(v)) return v.map(String).map((s) => s.trim()).filter(Boolean)
 
-  const seen = new Set<string>()
-  const out: string[] = []
+    const s = String(v ?? '').trim()
+    if (!s) return []
 
-  for (const p of parts) {
-    const key = p.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(p)
+    const parts = s
+      .split(/[,;\n]+/g)
+      .map((x) => x.trim())
+      .filter(Boolean)
+
+    const seen = new Set<string>()
+    const out: string[] = []
+
+    for (const p of parts) {
+      const key = p.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(p)
+    }
+
+    return out
   }
 
-  return out
-}
+  function cleanText(text: string) {
+    return text
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, '-')
+      .replace(/\u00A0/g, ' ')
+  }
 
 function safeName(name: string) {
   return name.replace(/[^\w.\-]+/g, '_')
@@ -435,26 +443,26 @@ export default function LogEditPage() {
         site_managers_names: siteManagersNames,
       })
 
-      // ===== MAIN UPDATE =====
-      const { error: logError } = await supabase
-        .from('daily_logs')
-        .update({
-          log_date: form.log_date,
-          description: form.description,
-          work_description: form.work_description,
-          remarks: form.remarks,
-          external_company: form.external_company,
-          workers_count: workersNames.length,
-          site_managers_count: siteManagersNames.length,
-          workers_names: workersNames,
-          site_managers_names: siteManagersNames,
-        })
-        .eq('id', logId)
-        .eq('project_id', projectId)
+      // ===== MAIN UPDATE (FIXED) =====
+      const { error: updateError } = await supabase
+      .from('daily_logs')
+      .update({
+        log_date: form.log_date,
+        description: cleanText(form.description),
+        work_description: cleanText(form.work_description),
+        remarks: cleanText(form.remarks),
+        external_company: form.external_company,
+        workers_count: workers.map(w => w.name.trim()).filter(Boolean).length,
+        site_managers_count: toTextArray(form.site_managers_names).length,
+        workers_names: workers.map(w => w.name.trim()).filter(Boolean),
+        site_managers_names: toTextArray(form.site_managers_names),
+      })
+      .eq('id', logId)
+      .eq('project_id', projectId)
 
-      if (logError) {
-        console.error('MAIN UPDATE ERROR:', logError)
-        throw logError
+      if (updateError) {
+        console.error('MAIN UPDATE ERROR:', updateError)
+        throw updateError
       }
 
       console.log('MAIN UPDATE OK')
@@ -559,7 +567,7 @@ export default function LogEditPage() {
       setSaving(false)
     }
   }
-
+ 
   async function compressImage(file: File, maxBytes = 1024 * 1024): Promise<File> {
     if (!file.type.startsWith('image/')) return file
 
