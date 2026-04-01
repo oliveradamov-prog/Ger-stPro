@@ -720,7 +720,6 @@ export default function LogDetailsPage() {
             ])
       )
 
-      addSectionTitle('Vorkommnisse')
 
       if (events.length === 0) {
         addTextBlock('Vorkommnisse', 'Keine Vorkommnisse vorhanden.')
@@ -759,7 +758,7 @@ export default function LogDetailsPage() {
             rowHeight +
             paddingBottom
 
-          drawSectionBox('Vorkommnis', boxHeight, (contentStartY) => {
+          drawSectionBox('Vorkommnisse', boxHeight, (contentStartY) => {
             const startX = margin + paddingX
 
             pdf.setFont('helvetica', 'normal')
