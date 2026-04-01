@@ -97,12 +97,18 @@ function asString(v: any) {
     return out
   }
 
-  function cleanText(text: string) {
-    return text
-      .replace(/[\u201C\u201D]/g, '"')
-      .replace(/[\u2013\u2014]/g, '-')
-      .replace(/\u00A0/g, ' ')
-  }
+function cleanText(text: string) {
+  return text
+    .normalize('NFKC')
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/[\u2028\u2029]/g, '\n')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .trim()
+}
 
 function safeName(name: string) {
   return name.replace(/[^\w.\-]+/g, '_')
