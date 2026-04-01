@@ -699,6 +699,15 @@ export default function LogDetailsPage() {
             ])
       )
 
+      addTextBlock(
+        'Ausgeführte Arbeiten',
+        log?.work_description?.trim() || '—'
+      )
+
+      addTextBlock(
+        'Bemerkungen',
+        log?.remarks?.trim() || '—'
+      )
 
       addSmallTableBox(
         'Besprechungen',
@@ -996,7 +1005,7 @@ export default function LogDetailsPage() {
                 </div>
               ) : (
                 <div className="tableWrap">
-                  <table className="table">
+                  <table className="table eventsTable">
                     <thead>
                       <tr>
                         <th>Vorkommnis</th>
@@ -1207,6 +1216,35 @@ export default function LogDetailsPage() {
           width:100%;
           border-collapse:collapse;
           min-width:640px;
+        }
+
+        .eventsTable{
+          table-layout: fixed;
+          width: 100%;
+          min-width: 0;
+        }
+
+        .eventsTable th:nth-child(1),
+        .eventsTable td:nth-child(1){
+          width: 62%;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+        }
+
+        .eventsTable th:nth-child(2),
+        .eventsTable td:nth-child(2){
+          width: 14%;
+        }
+
+        .eventsTable th:nth-child(3),
+        .eventsTable td:nth-child(3){
+          width: 12%;
+        }
+
+        .eventsTable th:nth-child(4),
+        .eventsTable td:nth-child(4){
+          width: 12%;
         }
 
         .table th,
