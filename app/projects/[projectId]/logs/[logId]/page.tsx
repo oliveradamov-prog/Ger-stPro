@@ -726,17 +726,60 @@ export default function LogDetailsPage() {
         addTextBlock('Vorkommnisse', 'Keine Vorkommnisse vorhanden.')
       } else {
         for (const row of events) {
-          addTextBlock('Vorkommnis', row.text?.trim() || '—')
+          const paddingX = 14
+          const paddingTop = 14
+          const paddingBottom = 12
+          const titleGap = 18
+          const lineHeight = 16
 
-          addSmallTableBox(
-            '',
-            ['Erlediger', 'Status', 'Termin'],
-            [[
-              row.erlediger || '—',
-              row.status || '—',
-              row.termin || '—',
-            ]]
-          )
+          const eventText = row.text?.trim() || '—'
+          const textWidth = contentWidth - paddingX * 2
+          const textLines = pdf.splitTextToSize(eventText, textWidth)
+
+          const metaHeaders = ['Erlediger', 'Status', 'Termin']
+          const metaValues = [
+            row.erlediger || '—',
+            row.status || '—',
+            row.termin || '—',
+          ]
+
+          const tableWidth = contentWidth - paddingX * 2
+          const colWidth = tableWidth / 3
+          const headerHeight = getTableHeaderHeight(metaHeaders, colWidth)
+          const rowHeight = getTableRowHeight(metaValues, colWidth)
+
+          const textHeight = Math.max(lineHeight, textLines.length * lineHeight)
+
+          const boxHeight =
+            paddingTop +
+            titleGap +
+            textHeight +
+            16 +
+            headerHeight +
+            rowHeight +
+            paddingBottom
+
+          drawSectionBox('Vorkommnis', boxHeight, (contentStartY) => {
+            const startX = margin + paddingX
+
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(12)
+            pdf.setTextColor(20, 20, 20)
+            pdf.text(textLines, startX, contentStartY)
+
+            let innerY = contentStartY + textHeight + 10
+
+            const drawnHeaderHeight = drawTableHeaderAt(
+              metaHeaders,
+              colWidth,
+              startX,
+              innerY,
+              tableWidth
+            )
+
+            innerY += drawnHeaderHeight
+            drawTableRowAt(metaValues, colWidth, startX, innerY)
+          })
         }
       }
 
