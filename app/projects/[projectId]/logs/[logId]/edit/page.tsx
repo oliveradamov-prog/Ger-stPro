@@ -390,7 +390,6 @@ export default function LogEditPage() {
 
   async function save() {
     try {
-      alert('SAVE CLICKED')
       setMsg('')
       setSaving(true)
 
