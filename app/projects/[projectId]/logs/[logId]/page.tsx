@@ -853,10 +853,11 @@ export default function LogDetailsPage() {
             const startX = margin + paddingX
             let innerY = contentStartY
 
-            rowsForThisPage.forEach((row, rowIndex) => {
-              row.forEach((p, colIndex) => {
+            for (const row of rowsForThisPage) {
+              for (let colIndex = 0; colIndex < row.length; colIndex++) {
+                const p = row[colIndex]
                 const url = photoUrls[p.path]
-                if (!url) return
+                if (!url) continue
 
                 const x = startX + colIndex * (photoWidth + 16)
                 const blockY = innerY
@@ -865,16 +866,31 @@ export default function LogDetailsPage() {
                   pdf.setDrawColor(225, 225, 225)
                   pdf.roundedRect(x, blockY, photoWidth, photoHeight, 8, 8)
 
+                  const imgProps = pdf.getImageProperties(url)
+                  const naturalWidth = imgProps.width || 1
+                  const naturalHeight = imgProps.height || 1
+
+                  const maxWidth = photoWidth - 4
+                  const maxHeight = photoHeight - 4
+
+                  const scale = Math.min(maxWidth / naturalWidth, maxHeight / naturalHeight)
+
+                  const renderWidth = naturalWidth * scale
+                  const renderHeight = naturalHeight * scale
+
+                  const drawX = x + 2 + (maxWidth - renderWidth) / 2
+                  const drawY = blockY + 2 + (maxHeight - renderHeight) / 2
+
                   pdf.addImage(
                     url,
                     'JPEG',
-                    x + 2,
-                    blockY + 2,
-                    photoWidth - 4,
-                    photoHeight - 4
+                    drawX,
+                    drawY,
+                    renderWidth,
+                    renderHeight
                   )
                 } catch {
-                  return
+                  continue
                 }
 
                 pdf.setFont('helvetica', 'normal')
@@ -890,10 +906,10 @@ export default function LogDetailsPage() {
                   x,
                   blockY + photoHeight + 20
                 )
-              })
+              }
 
               innerY += photoRowHeight
-            })
+            }
           })
 
           remainingRows = remainingRows.slice(rowsForThisPage.length)
