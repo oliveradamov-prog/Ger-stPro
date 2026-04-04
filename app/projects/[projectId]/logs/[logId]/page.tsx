@@ -1057,38 +1057,32 @@ export default function LogDetailsPage() {
                   Keine Vorkommnisse vorhanden.
                 </div>
               ) : (
-                <div className="tableWrap">
-                  <table className="table eventsTable">
-                    <thead>
-                      <tr>
-                        <th>Vorkommnis</th>
-                        <th>Erlediger</th>
-                        <th>Status</th>
-                        <th>Termin</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {events.map((row) => (
-                        <>
-                          {/* 1. sor – Vorkommnis szöveg */}
-                          <tr key={row.id + '-text'}>
-                            <td colSpan={4}>
-                              {row.text || '—'}
-                            </td>
-                          </tr>
-
-                          {/* 2. sor – Erlediger / Status / Termin */}
-                          <tr key={row.id + '-meta'}>
-                            <td></td>
-                            <td>{row.erlediger || '—'}</td>
-                            <td>{row.status || '—'}</td>
-                            <td>{row.termin || '—'}</td>
-                          </tr>
-                        </>
-                      ))}
-                    </tbody>
-                  </table>
+          <div className="eventsList">
+            {events.map((row) => (
+              <div key={row.id} className="eventCard">
+                <div className="eventText">
+                  {row.text || '—'}
                 </div>
+
+                <div className="eventMeta">
+                  <div className="eventMetaItem">
+                    <span className="eventMetaLabel">Erlediger</span>
+                    <span className="eventMetaValue">{row.erlediger || '—'}</span>
+                  </div>
+
+                  <div className="eventMetaItem">
+                    <span className="eventMetaLabel">Status</span>
+                    <span className="eventMetaValue">{row.status || '—'}</span>
+                  </div>
+
+                  <div className="eventMetaItem">
+                    <span className="eventMetaLabel">Termin</span>
+                    <span className="eventMetaValue">{row.termin || '—'}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
               )}
             </div>
 
@@ -1398,6 +1392,61 @@ export default function LogDetailsPage() {
         .photoLabel{
           color:var(--text);
           opacity:.92;
+        }
+
+        .eventsList{
+          display:grid;
+          gap:12px;
+        }
+
+        .eventCard{
+          border:1px solid rgba(255,255,255,.08);
+          border-radius:16px;
+          overflow:hidden;
+          background:rgba(255,255,255,.02);
+        }
+
+        .eventText{
+          padding:14px 16px;
+          font-size:14px;
+          font-weight:800;
+          line-height:1.5;
+          white-space:pre-wrap;
+          overflow-wrap:anywhere;
+          word-break:break-word;
+          border-bottom:1px solid rgba(255,255,255,.08);
+        }
+
+        .eventMeta{
+          display:grid;
+          grid-template-columns:1fr 1fr 1fr;
+        }
+
+        .eventMetaItem{
+          padding:12px 16px;
+          display:grid;
+          gap:6px;
+        }
+
+        .eventMetaLabel{
+          color:var(--muted);
+          font-size:13px;
+          font-weight:950;
+        }
+
+        .eventMetaValue{
+          color:var(--text);
+          font-size:14px;
+          font-weight:800;
+          line-height:1.4;
+          overflow-wrap:anywhere;
+          word-break:break-word;
+        }
+
+        @media(max-width:720px){
+          .eventMeta{
+            grid-template-columns:1fr;
+          }
         }
       `}</style>
 
