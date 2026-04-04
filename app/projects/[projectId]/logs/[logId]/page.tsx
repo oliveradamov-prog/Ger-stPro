@@ -812,8 +812,18 @@ export default function LogDetailsPage() {
         let firstPage = true
 
         while (remainingRows.length > 0) {
-          const availableRowsHeight =
+          let availableRowsHeight =
             pageHeight - margin - y - paddingTop - titleGap - paddingBottom
+
+          const minRowsWanted = Math.min(2, remainingRows.length)
+          const minUsefulHeight = minRowsWanted * photoRowHeight
+
+          if (availableRowsHeight < minUsefulHeight && y > margin + 20) {
+            pdf.addPage()
+            y = margin
+            availableRowsHeight =
+              pageHeight - margin - y - paddingTop - titleGap - paddingBottom
+          }
 
           let consumedHeight = 0
           let rowsForThisPage: PhotoRow[][] = []
