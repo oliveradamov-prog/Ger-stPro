@@ -837,7 +837,7 @@ export default function LogDetailsPage() {
           }
 
           const boxHeight = paddingTop + titleGap + consumedHeight + paddingBottom
-          const sectionTitle = firstPage ? 'Fotos' : 'Fotos (Fortsetzung)'
+          const sectionTitle = 'Fotos'
 
           drawSectionBox(sectionTitle, boxHeight, (contentStartY) => {
             const startX = margin + paddingX
