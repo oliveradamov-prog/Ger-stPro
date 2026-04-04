@@ -1069,12 +1069,22 @@ export default function LogDetailsPage() {
                     </thead>
                     <tbody>
                       {events.map((row) => (
-                        <tr key={row.id}>
-                          <td>{row.text || '—'}</td>
-                          <td>{row.erlediger || '—'}</td>
-                          <td>{row.status || '—'}</td>
-                          <td>{row.termin || '—'}</td>
-                        </tr>
+                        <>
+                          {/* 1. sor – Vorkommnis szöveg */}
+                          <tr key={row.id + '-text'}>
+                            <td colSpan={4}>
+                              {row.text || '—'}
+                            </td>
+                          </tr>
+
+                          {/* 2. sor – Erlediger / Status / Termin */}
+                          <tr key={row.id + '-meta'}>
+                            <td></td>
+                            <td>{row.erlediger || '—'}</td>
+                            <td>{row.status || '—'}</td>
+                            <td>{row.termin || '—'}</td>
+                          </tr>
+                        </>
                       ))}
                     </tbody>
                   </table>
@@ -1300,6 +1310,13 @@ export default function LogDetailsPage() {
         .eventsTable th:nth-child(4),
         .eventsTable td:nth-child(4){
           width: 12%;
+        }
+
+        .eventsTable td[colspan="4"]{
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+          padding-bottom: 8px;
         }
 
         .table th,
