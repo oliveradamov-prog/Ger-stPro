@@ -786,69 +786,108 @@ export default function LogDetailsPage() {
         }
       }
 
-      addSectionTitle('Fotos')
-
       if (photos.length === 0) {
         addTextBlock('Fotos', 'Keine Fotos vorhanden.')
       } else {
         const MAX_PHOTOS = 12
         const limitedPhotos = photos.slice(0, MAX_PHOTOS)
 
-        const photoWidth = (contentWidth - 16) / 2
+        const paddingX = 14
+        const paddingTop = 14
+        const paddingBottom = 12
+        const titleGap = 18
+
+        const photoWidth = (contentWidth - paddingX * 2 - 16) / 2
         const photoHeight = 150
         const captionHeight = 26
+        const rowGap = 18
+        const photoRowHeight = photoHeight + captionHeight + rowGap
 
-        for (let i = 0; i < limitedPhotos.length; i++) {
-          const p = limitedPhotos[i]
-          const url = photoUrls[p.path]
-          if (!url) continue
+        const photoRows: PhotoRow[][] = []
+        for (let i = 0; i < limitedPhotos.length; i += 2) {
+          photoRows.push(limitedPhotos.slice(i, i + 2))
+        }
 
-          const isLeft = i % 2 === 0
-          const x = isLeft ? margin : margin + photoWidth + 16
+        let remainingRows = [...photoRows]
+        let firstPage = true
 
-          if (isLeft) {
-            ensureSpace(photoHeight + captionHeight + 20)
+        while (remainingRows.length > 0) {
+          const availableRowsHeight =
+            pageHeight - margin - y - paddingTop - titleGap - paddingBottom
+
+          let consumedHeight = 0
+          let rowsForThisPage: PhotoRow[][] = []
+
+          for (const row of remainingRows) {
+            if (
+              rowsForThisPage.length > 0 &&
+              consumedHeight + photoRowHeight > availableRowsHeight
+            ) {
+              break
+            }
+
+            rowsForThisPage.push(row)
+            consumedHeight += photoRowHeight
           }
 
-          const blockY = y
-
-          try {
-            pdf.setDrawColor(225, 225, 225)
-            pdf.roundedRect(x, blockY, photoWidth, photoHeight, 8, 8)
-
-            pdf.addImage(
-              url,
-              'JPEG',
-              x + 2,
-              blockY + 2,
-              photoWidth - 4,
-              photoHeight - 4
-            )
-          } catch {
+          if (rowsForThisPage.length === 0) {
+            pdf.addPage()
+            y = margin
             continue
           }
 
-          pdf.setFont('helvetica', 'normal')
-          pdf.setFontSize(8)
-          pdf.setTextColor(90, 90, 90)
-          pdf.text(
-            `Baustelle: ${project?.location || '—'}`,
-            x,
-            blockY + photoHeight + 10
-          )
-          pdf.text(
-            `Zeit: ${formatDateTime(p.created_at) || '—'}`,
-            x,
-            blockY + photoHeight + 20
-          )
+          const boxHeight = paddingTop + titleGap + consumedHeight + paddingBottom
+          const sectionTitle = firstPage ? 'Fotos' : 'Fotos (Fortsetzung)'
 
-          if (!isLeft) {
-            y += photoHeight + captionHeight + 18
-          }
-        }
+          drawSectionBox(sectionTitle, boxHeight, (contentStartY) => {
+            const startX = margin + paddingX
+            let innerY = contentStartY
 
-        if (limitedPhotos.length % 2 === 1) {
-          y += photoHeight + captionHeight + 18
+            rowsForThisPage.forEach((row, rowIndex) => {
+              row.forEach((p, colIndex) => {
+                const url = photoUrls[p.path]
+                if (!url) return
+
+                const x = startX + colIndex * (photoWidth + 16)
+                const blockY = innerY
+
+                try {
+                  pdf.setDrawColor(225, 225, 225)
+                  pdf.roundedRect(x, blockY, photoWidth, photoHeight, 8, 8)
+
+                  pdf.addImage(
+                    url,
+                    'JPEG',
+                    x + 2,
+                    blockY + 2,
+                    photoWidth - 4,
+                    photoHeight - 4
+                  )
+                } catch {
+                  return
+                }
+
+                pdf.setFont('helvetica', 'normal')
+                pdf.setFontSize(8)
+                pdf.setTextColor(90, 90, 90)
+                pdf.text(
+                  `Baustelle: ${project?.location || '—'}`,
+                  x,
+                  blockY + photoHeight + 10
+                )
+                pdf.text(
+                  `Zeit: ${formatDateTime(p.created_at) || '—'}`,
+                  x,
+                  blockY + photoHeight + 20
+                )
+              })
+
+              innerY += photoRowHeight
+            })
+          })
+
+          remainingRows = remainingRows.slice(rowsForThisPage.length)
+          firstPage = false
         }
       }
 
