@@ -652,10 +652,13 @@ export default function LogDetailsPage() {
       
       pdf.setDrawColor(180, 180, 180)
       pdf.setLineWidth(0.6)
+
+      const lineEndX = pageWidth - margin - logoBoxWidth - 16
+      
       pdf.line(
         margin,
         headerTop + 45,
-        pageWidth - margin,
+        lineEndX,
         headerTop + 45
       )
 
