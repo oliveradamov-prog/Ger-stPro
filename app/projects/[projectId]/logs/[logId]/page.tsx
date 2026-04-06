@@ -326,7 +326,7 @@ export default function LogDetailsPage() {
 
         pdf.setFont('helvetica', 'bold')
         pdf.setFontSize(11)
-        pdf.setTextColor(20, 20, 20)
+        pdf.setTextColor(10, 10, 10)
         pdf.text(title, margin + paddingX, y + paddingTop)
 
         const contentStartY = y + paddingTop + titleGap
@@ -367,7 +367,7 @@ export default function LogDetailsPage() {
 
           drawSectionBox(currentTitle, boxHeight, (contentStartY) => {
             pdf.setFont('helvetica', 'normal')
-            pdf.setFontSize(12)
+            pdf.setFontSize(11)
             pdf.setTextColor(20, 20, 20)
 
             let textY = contentStartY
@@ -685,7 +685,7 @@ export default function LogDetailsPage() {
           rows.forEach(([label, value]) => {
             pdf.setFont('helvetica', 'bold')
             pdf.setFontSize(11)
-            pdf.setTextColor(20, 20, 20)
+            pdf.setTextColor(10, 10, 10)
             pdf.text(`${label}:`, margin + paddingX, innerY)
 
             pdf.setFont('helvetica', 'normal')
