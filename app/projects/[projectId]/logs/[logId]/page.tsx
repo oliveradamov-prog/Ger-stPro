@@ -626,7 +626,7 @@ export default function LogDetailsPage() {
           const renderHeight = naturalHeight * scale
 
           const drawX = logoX + (logoBoxWidth - renderWidth) / 2
-          const drawY = logoY + (logoBoxHeight - renderHeight) / 2
+          const drawY = logoY + (logoBoxHeight - renderHeight) / 2 - 2
 
 
           pdf.addImage(
