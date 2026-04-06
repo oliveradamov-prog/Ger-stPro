@@ -599,8 +599,8 @@ export default function LogDetailsPage() {
       const projectName = project?.name ?? 'Projekt'
 
       const headerTop = margin
-      const logoBoxWidth = 110
-      const logoBoxHeight = 70
+      const logoBoxWidth = 120
+      const logoBoxHeight = 78
       const logoX = pageWidth - margin - logoBoxWidth
       const logoY = headerTop
 
