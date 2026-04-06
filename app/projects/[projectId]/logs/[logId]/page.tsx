@@ -599,8 +599,8 @@ export default function LogDetailsPage() {
       const projectName = project?.name ?? 'Projekt'
 
       const headerTop = margin
-      const logoBoxWidth = 84
-      const logoBoxHeight = 52
+      const logoBoxWidth = 110
+      const logoBoxHeight = 70
       const logoX = pageWidth - margin - logoBoxWidth
       const logoY = headerTop
 
@@ -628,9 +628,6 @@ export default function LogDetailsPage() {
           const drawX = logoX + (logoBoxWidth - renderWidth) / 2
           const drawY = logoY + (logoBoxHeight - renderHeight) / 2
 
-          pdf.addImage(effectiveLogoUrl, 'PNG', drawX, drawY, renderWidth, renderHeight)
-
-          const logoDataUrl = await imageUrlToDataUrl(effectiveLogoUrl)
 
           pdf.addImage(
             effectiveLogoUrl,
