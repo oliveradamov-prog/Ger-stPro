@@ -649,6 +649,15 @@ export default function LogDetailsPage() {
       pdf.setFontSize(11)
       pdf.setTextColor(90, 90, 90)
       pdf.text(`${formatDateLong(log?.log_date || '')}`, margin, headerTop + 38)
+      
+      pdf.setDrawColor(180, 180, 180)
+      pdf.setLineWidth(0.6)
+      pdf.line(
+        margin,
+        headerTop + 45,
+        pageWidth - margin,
+        headerTop + 45
+      )
 
       y = headerTop + 74
 
