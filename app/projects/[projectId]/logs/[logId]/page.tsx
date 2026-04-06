@@ -626,7 +626,7 @@ export default function LogDetailsPage() {
           const renderHeight = naturalHeight * scale
 
           const drawX = logoX + (logoBoxWidth - renderWidth) / 2
-          const drawY = logoY + (logoBoxHeight - renderHeight) / 2 - 2
+          const drawY = logoY + (logoBoxHeight - renderHeight) / 2 - 4
 
 
           pdf.addImage(
@@ -648,7 +648,7 @@ export default function LogDetailsPage() {
       pdf.setFont('helvetica', 'normal')
       pdf.setFontSize(11)
       pdf.setTextColor(90, 90, 90)
-      pdf.text(`${formatDateLong(log?.log_date || '')} • ${projectName}`, margin, headerTop + 38)
+      pdf.text(`${formatDateLong(log?.log_date || '')}`, margin, headerTop + 38)
 
       y = headerTop + 74
 
@@ -915,15 +915,20 @@ export default function LogDetailsPage() {
         }
       }
 
-          const pageCount = pdf.getNumberOfPages()
+      const pageCount = pdf.getNumberOfPages()
 
-          for (let page = 1; page <= pageCount; page++) {
-            pdf.setPage(page)
-            pdf.setFont('helvetica', 'normal')
-            pdf.setFontSize(9)
-            pdf.setTextColor(120, 120, 120)
-            pdf.text('Erstellt mit GerüstPro app', margin, pageHeight - 16)
-          }
+      for (let page = 1; page <= pageCount; page++) {
+        pdf.setPage(page)
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(9)
+        pdf.setTextColor(120, 120, 120)
+
+        pdf.text('Erstellt mit GerüstPro app', margin, pageHeight - 16)
+
+        const pageLabel = `Seite ${page}/${pageCount}`
+        const pageLabelWidth = pdf.getTextWidth(pageLabel)
+        pdf.text(pageLabel, pageWidth - margin - pageLabelWidth, pageHeight - 16)
+      }
 
           const fileName = `${safeFileName(projectName)}_${safeFileName(title)}.pdf`
           pdf.save(fileName)
