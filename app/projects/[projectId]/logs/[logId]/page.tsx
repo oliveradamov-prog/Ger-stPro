@@ -326,7 +326,7 @@ export default function LogDetailsPage() {
 
         pdf.setFont('helvetica', 'bold')
         pdf.setFontSize(11)
-        pdf.setTextColor(70, 70, 70)
+        pdf.setTextColor(20, 20, 20)
         pdf.text(title, margin + paddingX, y + paddingTop)
 
         const contentStartY = y + paddingTop + titleGap
@@ -685,7 +685,7 @@ export default function LogDetailsPage() {
           rows.forEach(([label, value]) => {
             pdf.setFont('helvetica', 'bold')
             pdf.setFontSize(11)
-            pdf.setTextColor(70, 70, 70)
+            pdf.setTextColor(20, 20, 20)
             pdf.text(`${label}:`, margin + paddingX, innerY)
 
             pdf.setFont('helvetica', 'normal')
