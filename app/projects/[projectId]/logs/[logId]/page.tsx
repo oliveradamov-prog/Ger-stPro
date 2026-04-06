@@ -320,7 +320,8 @@ export default function LogDetailsPage() {
           y = margin
         }
 
-        pdf.setDrawColor(225, 225, 225)
+        pdf.setDrawColor(180, 180, 180)
+        pdf.setLineWidth(0.8)
         pdf.roundedRect(margin, y, contentWidth, boxHeight, radius, radius)
 
         pdf.setFont('helvetica', 'bold')
@@ -422,7 +423,7 @@ export default function LogDetailsPage() {
         const preparedHeaders = getPreparedHeaderLines(headers, colWidth)
         const headerHeight = getTableHeaderHeight(headers, colWidth)
 
-        pdf.setFillColor(245, 245, 245)
+        pdf.setFillColor(220, 220, 220)
         pdf.roundedRect(startX, startY, tableWidth, headerHeight, 8, 8, 'F')
 
         pdf.setFont('helvetica', 'bold')
