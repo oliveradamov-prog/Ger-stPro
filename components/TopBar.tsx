@@ -99,8 +99,7 @@ export default function TopBar() {
       setMenuOpen(false)
       setDisplayName('')
       setLoadingUser(false)
-      router.replace('/login')
-      router.refresh()
+      window.location.href = '/login'
     }
   }
 
@@ -140,21 +139,27 @@ export default function TopBar() {
 
       {menuOpen ? (
         <div className="mobileMenu">
-          <Link
-            href="/projects"
+          <button
+            type="button"
             className="mobileMenuItem"
-            onClick={() => setMenuOpen(false)}
+            onClick={() => {
+              setMenuOpen(false)
+              window.location.href = '/projects'
+            }}
           >
             Projekte
-          </Link>
+          </button>
 
-          <Link
-            href="/projects/new"
+          <button
+            type="button"
             className="mobileMenuItem"
-            onClick={() => setMenuOpen(false)}
+            onClick={() => {
+              setMenuOpen(false)
+              window.location.href = '/projects/new'
+            }}
           >
             Neues Projekt
-          </Link>
+          </button>
 
           {!loadingUser && displayName ? (
             <button
