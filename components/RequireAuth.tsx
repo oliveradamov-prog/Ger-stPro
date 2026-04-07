@@ -12,25 +12,25 @@ export default function RequireAuth({ children }: RequireAuthProps) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const [checking, setChecking] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [allowed, setAllowed] = useState(false)
 
   useEffect(() => {
     let mounted = true
 
     async function run() {
-      setChecking(true)
-      try {
+      if (mounted) setChecking(true)
 
+      try {
         const {
-          data: { user },
+          data: { session },
           error,
-        } = await supabase.auth.getUser()
+        } = await supabase.auth.getSession()
 
         if (!mounted) return
 
         if (error) {
-          console.error('RequireAuth getUser error:', error)
+          console.error('RequireAuth getSession error:', error)
           setAllowed(false)
           if (pathname !== '/login') {
             router.replace('/login')
@@ -38,7 +38,7 @@ export default function RequireAuth({ children }: RequireAuthProps) {
           return
         }
 
-        if (user) {
+        if (session?.user) {
           setAllowed(true)
         } else {
           setAllowed(false)
@@ -79,13 +79,51 @@ export default function RequireAuth({ children }: RequireAuthProps) {
       }
     })
 
+    async function handleFocus() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (!mounted) return
+
+        if (session?.user) {
+          setAllowed(true)
+        } else {
+          setAllowed(false)
+          if (pathname !== '/login') {
+            router.replace('/login')
+          }
+        }
+      } catch (err) {
+        console.error('RequireAuth focus refresh error:', err)
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        handleFocus()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       mounted = false
       subscription.unsubscribe()
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [router, pathname])
 
-  if (checking) return null
+  if (checking) {
+    return (
+      <div style={{ padding: '1rem', color: 'var(--muted)' }}>
+        Bitte warten…
+      </div>
+    )
+  }
 
   if (!allowed) return null
 
