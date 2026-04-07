@@ -90,14 +90,18 @@ export default function TopBar() {
     }
   }, [])
 
-  if (shouldHide) return null
-
   async function logout() {
-    await supabase.auth.signOut()
-    setMenuOpen(false)
-    setDisplayName('')
-    setLoadingUser(false)
-    router.replace('/login')
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error('Logout error:', err)
+    } finally {
+      setMenuOpen(false)
+      setDisplayName('')
+      setLoadingUser(false)
+      router.replace('/login')
+      router.refresh()
+    }
   }
 
   return (
